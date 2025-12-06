@@ -1,0 +1,96 @@
+# Prometheus Alert Rules for MemoryMesh
+
+groups:
+  - name: memorymesh_alerts
+    interval: 30s
+    rules:
+      # High-level service availability
+      - alert: ServiceDown
+        expr: up{job="memorymesh-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MemoryMesh API is down"
+          description: "The MemoryMesh API service has been down for more than 1 minute."
+
+      # Database connectivity
+      - alert: DatabaseConnectionFailure
+        expr: memorymesh_database_health == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failure"
+          description: "Cannot connect to the database for more than 2 minutes."
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(memorymesh_http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 10% for the last 5 minutes."
+
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(memorymesh_http_request_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is above 2 seconds for 10 minutes."
+
+      # Rate limiting
+      - alert: RateLimitExceeded
+        expr: rate(memorymesh_rate_limit_exceeded_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate limit violations"
+          description: "Rate limit is being exceeded frequently."
+
+      # Embedding job failures
+      - alert: EmbeddingJobFailures
+        expr: rate(memorymesh_embedding_jobs_total{status="failed"}[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High embedding job failure rate"
+          description: "More than 5% of embedding jobs are failing."
+
+      # Memory usage
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 / 1024 > 4
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 4GB."
+
+      # Disk space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is below 10%."
+
+      # Database connection pool exhaustion
+      - alert: DatabasePoolExhausted
+        expr: memorymesh_database_pool_size - memorymesh_database_pool_available < 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Less than 2 connections available in the pool."
+
