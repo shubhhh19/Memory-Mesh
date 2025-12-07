@@ -14,10 +14,23 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    bind = op.get_bind()
+    is_postgres = bind.dialect.name == "postgresql"
+    
+    # Only create extension for PostgreSQL
+    if is_postgres:
+        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    
+    # Use appropriate UUID type based on database
+    if is_postgres:
+        id_column = sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True)
+    else:
+        # SQLite uses string for UUIDs
+        id_column = sa.Column("id", sa.String(length=36), primary_key=True)
+    
     op.create_table(
         "messages",
-        sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True),
+        id_column,
         sa.Column("tenant_id", sa.String(length=64), nullable=False, index=True),
         sa.Column("conversation_id", sa.String(length=128), nullable=False, index=True),
         sa.Column("role", sa.String(length=16), nullable=False),
