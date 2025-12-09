@@ -1,6 +1,21 @@
+<div align="center">
+
+![Memory Mesh Logo](frontend/public/logo-banner.png)
+
 # Memory Mesh
 
-A production-ready semantic memory layer for AI applications. Store, search, and manage conversational memories with vector embeddings, importance scoring, and automated retention policies.
+**A production-ready semantic memory layer for AI applications**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-green.svg)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.3-black)](https://nextjs.org/)
+
+[Documentation](#overview) • [Quick Start](#quick-start) • [API Reference](#api-overview) • [Integration Guide](INTEGRATION.md) • [Production Deployment](README_PRODUCTION.md)
+
+</div>
+
+---
 
 ## Overview
 
@@ -8,98 +23,114 @@ Memory Mesh provides a REST API for storing conversation messages and searching 
 
 The service is designed as a separate microservice that you deploy and connect to from your main application. It supports multiple embedding providers, real-time updates via WebSockets, and includes a complete authentication system with JWT tokens and API keys.
 
+**Key Capabilities:**
+- Store and retrieve conversational memories at scale
+- Semantic search using vector similarity
+- Automatic importance scoring and retention policies
+- Multi-tenant data isolation
+- Real-time updates via WebSockets
+- Production-ready authentication and security
+
 ## Features
 
-- Semantic search using vector similarity with pgvector
-- Automatic embedding generation with multiple provider support
-- Importance scoring based on recency, role, and explicit importance
-- Automated retention policies for archiving and deleting messages
-- Multi-tenant data isolation
-- JWT-based authentication with user management
-- API key management for programmatic access
-- Conversation management with statistics and pagination
-- Real-time updates via WebSockets
-- Batch message operations for efficient processing
-- Analytics and usage statistics
-- Rate limiting with Redis backend
-- Background job queue for async embedding generation
-- Prometheus metrics endpoint
-- Distributed tracing with OpenTelemetry
-- API versioning with deprecation support
+### Core Functionality
+- **Semantic Search** - Vector similarity search using [pgvector](https://github.com/pgvector/pgvector)
+- **Automatic Embeddings** - Multiple provider support (Google Gemini, Sentence Transformers)
+- **Importance Scoring** - Based on recency, role, and explicit importance
+- **Retention Policies** - Automated archiving and deletion of messages
+- **Multi-tenant Isolation** - Secure data separation per tenant
+
+### Authentication & Security
+- **JWT Authentication** - User sessions with refresh tokens
+- **API Key Management** - Programmatic access with key rotation
+- **Role-based Access Control** - Admin, user, and read-only roles
+- **Rate Limiting** - Redis-backed with per-tenant limits
+- **Secure CORS** - Production-safe origin validation
+
+### Developer Experience
+- **REST API** - Comprehensive RESTful endpoints
+- **WebSocket Support** - Real-time updates and streaming
+- **Batch Operations** - Efficient bulk message processing
+- **Analytics** - Usage statistics and trends
+- **API Versioning** - Backward compatibility support
+
+### Operations
+- **Distributed Tracing** - OpenTelemetry integration
+- **Prometheus Metrics** - Comprehensive monitoring
+- **Health Checks** - Readiness and liveness probes
+- **Background Jobs** - Async embedding generation
+- **Database Migrations** - Alembic-based schema management
 
 ## Tech Stack
 
-**Backend:**
-- Python 3.11+
-- FastAPI for REST API
-- PostgreSQL with pgvector extension (SQLite supported for development)
-- Redis for caching and rate limiting
-- SQLAlchemy async ORM
-- Alembic for database migrations
-- JWT authentication with python-jose
-- WebSockets for real-time features
+### Backend
+- **[Python 3.11+](https://www.python.org/)** - Modern Python features
+- **[FastAPI](https://fastapi.tiangolo.com/)** - High-performance REST API framework
+- **[PostgreSQL](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector)** - Vector database (SQLite for development)
+- **[Redis](https://redis.io/)** - Caching and rate limiting
+- **[SQLAlchemy](https://www.sqlalchemy.org/)** - Async ORM
+- **[Alembic](https://alembic.sqlalchemy.org/)** - Database migrations
+- **[python-jose](https://github.com/mpdavis/python-jose)** - JWT authentication
 
-**Frontend:**
-- Next.js 15 with React 19
-- TypeScript for type safety
-- Tailwind CSS for styling
-- React Hot Toast for notifications
-- Crypto-js for secure token storage
+### Frontend
+- **[Next.js 15](https://nextjs.org/)** - React framework
+- **[React 19](https://react.dev/)** - UI library
+- **[TypeScript](https://www.typescriptlang.org/)** - Type safety
+- **[Tailwind CSS](https://tailwindcss.com/)** - Styling
 
-**Infrastructure:**
-- Docker and Docker Compose
-- Prometheus for metrics
-- Grafana dashboards
-- Structured JSON logging
-- GitHub Actions for CI/CD
+### Infrastructure
+- **[Docker](https://www.docker.com/)** - Containerization
+- **[Prometheus](https://prometheus.io/)** - Metrics collection
+- **[Grafana](https://grafana.com/)** - Dashboards
+- **[GitHub Actions](https://github.com/features/actions)** - CI/CD
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.11 or higher
-- PostgreSQL 14+ with pgvector extension (or SQLite for local development)
-- Redis (optional, but required for rate limiting and caching)
-- Node.js 18+ (for frontend)
-- Google Gemini API key (if using Gemini embeddings)
+- [Python 3.11+](https://www.python.org/downloads/)
+- [PostgreSQL 14+](https://www.postgresql.org/download/) with [pgvector extension](https://github.com/pgvector/pgvector) (or SQLite for local development)
+- [Redis](https://redis.io/download) (optional, but required for rate limiting and caching)
+- [Node.js 18+](https://nodejs.org/) (for frontend)
+- [Google Gemini API key](https://ai.google.dev/) (if using Gemini embeddings)
 
 ### Backend Setup
 
-1. Clone the repository:
+1. **Clone the repository:**
 ```bash
 git clone https://github.com/shubhhh19/memory-layer.git
 cd memory-layer
 ```
 
-2. Create a virtual environment:
+2. **Create a virtual environment:**
 ```bash
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. Install dependencies:
+3. **Install dependencies:**
 ```bash
 pip install -e ".[dev]"
 ```
 
-4. Configure environment variables:
+4. **Configure environment variables:**
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` and set at minimum:
 - `MEMORY_DATABASE_URL` - PostgreSQL connection string
-- `MEMORY_JWT_SECRET_KEY` - Secure random key for JWT tokens (generate with: `python -c 'import secrets; print(secrets.token_urlsafe(32))'`)
+- `MEMORY_JWT_SECRET_KEY` - Secure random key (generate with: `python -c 'import secrets; print(secrets.token_urlsafe(32))'`)
 - `MEMORY_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
 - `MEMORY_GEMINI_API_KEY` - If using Google Gemini embeddings
 - `MEMORY_REDIS_URL` - Redis connection string (required for rate limiting)
 
-5. Run database migrations:
+5. **Run database migrations:**
 ```bash
 alembic upgrade head
 ```
 
-6. Start the service:
+6. **Start the service:**
 ```bash
 # Using Docker Compose
 docker compose up --build
@@ -108,31 +139,31 @@ docker compose up --build
 uvicorn ai_memory_layer.main:app --reload
 ```
 
-The API will be available at http://localhost:8000. Interactive API documentation is at http://localhost:8000/docs.
+The API will be available at [http://localhost:8000](http://localhost:8000). Interactive API documentation is at [http://localhost:8000/docs](http://localhost:8000/docs).
 
 ### Frontend Setup
 
-1. Navigate to the frontend directory:
+1. **Navigate to the frontend directory:**
 ```bash
 cd frontend
 ```
 
-2. Install dependencies:
+2. **Install dependencies:**
 ```bash
 npm install
 ```
 
-3. Create `.env.local` file:
+3. **Create `.env.local` file:**
 ```
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-4. Start the development server:
+4. **Start the development server:**
 ```bash
 npm run dev
 ```
 
-The frontend will be available at http://localhost:3000.
+The frontend will be available at [http://localhost:3000](http://localhost:3000).
 
 ## Quick Start
 
@@ -186,20 +217,22 @@ curl "http://localhost:8000/v1/memory/search?tenant_id=my-app&query=Python&top_k
 curl http://localhost:8000/v1/admin/health
 ```
 
+For more examples, see the [Integration Guide](INTEGRATION.md).
+
 ## API Overview
 
 The service exposes these main endpoints:
 
-**Authentication:**
-- `POST /v1/auth/register` - Register a new user
-- `POST /v1/auth/login` - Login and get JWT tokens
+### Authentication
+- `POST /v1/auth/register` - [Register a new user](#register-a-user)
+- `POST /v1/auth/login` - [Login and get JWT tokens](#login-and-get-token)
 - `POST /v1/auth/refresh` - Refresh access token
 - `GET /v1/auth/me` - Get current user information
 - `POST /v1/auth/api-keys` - Create API key
 - `GET /v1/auth/api-keys` - List API keys
 
-**Messages:**
-- `POST /v1/messages` - Store a new message
+### Messages
+- `POST /v1/messages` - [Store a new message](#store-a-message)
 - `GET /v1/messages/{message_id}` - Retrieve a message by ID
 - `PUT /v1/messages/{message_id}` - Update a message
 - `DELETE /v1/messages/{message_id}` - Delete a message
@@ -207,10 +240,10 @@ The service exposes these main endpoints:
 - `PUT /v1/messages/batch/update` - Batch update messages
 - `DELETE /v1/messages/batch` - Batch delete messages
 
-**Search:**
-- `GET /v1/memory/search` - Search for relevant messages
+### Search
+- `GET /v1/memory/search` - [Search for relevant messages](#search-messages)
 
-**Conversations:**
+### Conversations
 - `GET /v1/conversations` - List conversations
 - `POST /v1/conversations` - Create a conversation
 - `GET /v1/conversations/{conversation_id}` - Get conversation details
@@ -218,22 +251,27 @@ The service exposes these main endpoints:
 - `DELETE /v1/conversations/{conversation_id}` - Delete conversation
 - `GET /v1/conversations/{conversation_id}/stats` - Get conversation statistics
 
-**Analytics:**
+### Analytics
 - `GET /v1/analytics/usage` - Get usage statistics
 - `GET /v1/analytics/trends` - Get usage trends
 - `GET /v1/analytics/top-conversations` - Get top conversations
 - `GET /v1/analytics/embedding-stats` - Get embedding statistics
 
-**WebSockets:**
+### WebSockets
 - `WS /ws/messages/{tenant_id}` - Real-time message updates
 - `WS /ws/stream/{tenant_id}` - Streaming search results
 
-**Admin:**
-- `GET /v1/admin/health` - Health check endpoint
+### Admin
+- `GET /v1/admin/health` - [Health check endpoint](#check-health)
 - `GET /v1/admin/readiness` - Readiness probe
 - `POST /v1/admin/retention/run` - Manually trigger retention policies
 
 All endpoints except health and readiness require authentication via JWT token in the `Authorization: Bearer` header or API key in the `x-api-key` header.
+
+**Interactive API Documentation:**
+- [Swagger UI](http://localhost:8000/docs) - Interactive API explorer
+- [ReDoc](http://localhost:8000/redoc) - Alternative documentation view
+- [OpenAPI JSON](http://localhost:8000/openapi.json) - Machine-readable API spec
 
 See [INTEGRATION.md](INTEGRATION.md) for detailed integration examples and client code in Python, JavaScript, and Go.
 
@@ -241,49 +279,49 @@ See [INTEGRATION.md](INTEGRATION.md) for detailed integration examples and clien
 
 Key environment variables:
 
-**Database:**
-```
+### Database
+```bash
 MEMORY_DATABASE_URL=postgresql+asyncpg://user:pass@localhost/memory_layer
 ```
 
-**Authentication:**
-```
+### Authentication
+```bash
 MEMORY_JWT_SECRET_KEY=your-secure-random-key-here
 MEMORY_ACCESS_TOKEN_EXPIRE_MINUTES=30
 MEMORY_REFRESH_TOKEN_EXPIRE_DAYS=7
 ```
 
-**Embeddings:**
-```
+### Embeddings
+```bash
 MEMORY_EMBEDDING_PROVIDER=google_gemini
 MEMORY_GEMINI_API_KEY=your-key-here
 MEMORY_EMBEDDING_DIMENSIONS=768
 ```
 
-**Redis (for rate limiting and caching):**
-```
+### Redis (for rate limiting and caching)
+```bash
 MEMORY_REDIS_URL=redis://localhost:6379/0
 ```
 
-**Rate Limiting:**
-```
+### Rate Limiting
+```bash
 MEMORY_GLOBAL_RATE_LIMIT=200/minute
 MEMORY_TENANT_RATE_LIMIT=120/minute
 ```
 
-**Retention:**
-```
+### Retention
+```bash
 MEMORY_RETENTION_MAX_AGE_DAYS=30
 MEMORY_RETENTION_IMPORTANCE_THRESHOLD=0.35
 MEMORY_RETENTION_SCHEDULE_SECONDS=86400
 ```
 
-**CORS:**
-```
+### CORS
+```bash
 MEMORY_ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
 ```
 
-See the `.env.example` file for all available configuration options.
+See the [`.env.example`](.env.example) file for all available configuration options.
 
 ## Architecture
 
@@ -297,7 +335,7 @@ The service follows a layered architecture:
 
 Embeddings are generated either inline (synchronous) or via a background job queue (asynchronous). The job queue can run in-process or as a separate worker process.
 
-Search uses pgvector for vector similarity when available, with a fallback to SQLite for local development. Results are ranked by combining similarity scores, importance scores, and temporal decay.
+Search uses [pgvector](https://github.com/pgvector/pgvector) for vector similarity when available, with a fallback to SQLite for local development. Results are ranked by combining similarity scores, importance scores, and temporal decay.
 
 Authentication supports both JWT tokens for user sessions and API keys for programmatic access. User management includes roles, tenant isolation, and session tracking.
 
@@ -372,7 +410,7 @@ The service exposes Prometheus metrics at `/metrics`. Included metrics:
 - Authentication attempts
 - WebSocket connections
 
-Grafana dashboard configuration is included in `docs/monitoring/`.
+[Grafana dashboard configuration](docs/monitoring/) is included in the repository.
 
 ## How It Works
 
@@ -473,13 +511,28 @@ Planned improvements and features for future releases:
 - The service doesn't handle message updates or deletions directly in some cases - use retention policies for cleanup.
 - Client-side encryption in the frontend provides obfuscation only, not true security. For production, consider httpOnly cookies or server-side session management.
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Author
 
-Shubh Soni
+**Shubh Soni**
+
 - GitHub: [@shubhhh19](https://github.com/shubhhh19)
-- Email: sonishubh2004@gmail.com
-- Website: https://shubhsoni.com/
+- Email: [sonishubh2004@gmail.com](mailto:sonishubh2004@gmail.com)
+- Website: [https://shubhsoni.com/](https://shubhsoni.com/)
+
+---
+
+<div align="center">
+
+**[Documentation](INTEGRATION.md)** • **[Production Guide](README_PRODUCTION.md)** • **[Report Bug](https://github.com/shubhhh19/memory-layer/issues)** • **[Request Feature](https://github.com/shubhhh19/memory-layer/issues)**
+
+Made with ❤️ by [Shubh Soni](https://shubhsoni.com/)
+
+</div>
