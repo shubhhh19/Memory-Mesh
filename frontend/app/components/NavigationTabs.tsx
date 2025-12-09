@@ -11,7 +11,7 @@ interface NavigationTabsProps {
 
 const tabs = [
     { id: 'landing', label: 'Overview' },
-    { id: 'dashboard', label: 'API Testing' }
+    { id: 'dashboard', label: 'Dashboard' }
 ];
 
 export default function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {

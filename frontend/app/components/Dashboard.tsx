@@ -145,7 +145,7 @@ export default function Dashboard() {
                         <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                             <div>
                                 <h1 className="text-2xl sm:text-3xl font-light text-[var(--text)] mb-2">
-                                    <span>API Testing Dashboard</span>
+                                    <span>Dashboard</span>
                                 </h1>
                                 <p className="text-[var(--muted-text)]">
                                     <span>Test and explore Memory Mesh API endpoints in real-time</span>
