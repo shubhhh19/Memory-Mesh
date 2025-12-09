@@ -33,8 +33,15 @@ export const CONFIG_KEY = 'memory-mesh-config';
 export const REQUEST_HISTORY_KEY = 'memory-mesh-requests';
 export const NAVIGATION_STATE_KEY = 'memory-mesh-nav';
 
+const getDefaultBaseUrl = (): string => {
+    if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_BASE_URL) {
+        return process.env.NEXT_PUBLIC_API_BASE_URL;
+    }
+    return 'http://localhost:8000';
+};
+
 export const defaultConfig: ApiConfig = {
-    baseUrl: 'http://localhost:8000',
+    baseUrl: getDefaultBaseUrl(),
     apiKey: '',
     tenantId: 'demo-tenant'
 };
