@@ -205,5 +205,5 @@ class OAuthCallbackRequest(BaseModel):
     
     provider: OAuthProvider
     code: str = Field(..., description="Authorization code from OAuth provider")
-    state: str | None = Field(None, description="State parameter for CSRF protection")
+    state: str = Field(..., description="State parameter for CSRF protection (required)")
 

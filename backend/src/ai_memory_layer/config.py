@@ -129,7 +129,7 @@ class Settings(BaseSettings):
     github_client_id: str | None = Field(default=None, alias="GITHUB_CLIENT_ID")
     github_client_secret: str | None = Field(default=None, alias="GITHUB_CLIENT_SECRET")
     oauth_redirect_url: str = Field(
-        default="http://localhost:3000/api/auth/callback",
+        default="http://localhost:3000/auth/callback",
         alias="OAUTH_REDIRECT_URL"
     )
 

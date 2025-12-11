@@ -12,7 +12,7 @@ except ImportError:  # pragma: no cover
     structlog = None  # type: ignore[assignment]
 
 from ai_memory_layer.config import get_settings
-from ai_memory_layer.middleware import request_id_ctx_var
+from ai_memory_layer.middleware_module import request_id_ctx_var
 
 
 def configure_logging() -> None:

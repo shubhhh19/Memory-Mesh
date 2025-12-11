@@ -35,9 +35,8 @@ export default function OAuthCallbackHandler() {
                     document.cookie = 'auth_tokens=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
 
                     toast.success('Logged in successfully');
-                    router.push('/dashboard');
+                    router.push('/?view=dashboard');
                 } catch (error) {
-                    console.error('Error processing OAuth callback:', error);
                     toast.error('Authentication failed');
                     router.push('/login');
                 }

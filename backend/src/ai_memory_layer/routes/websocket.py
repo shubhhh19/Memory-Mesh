@@ -67,24 +67,52 @@ async def authenticate_websocket_user(
     return user
 
 
+from dataclasses import dataclass
+from typing import Any
+from uuid import UUID
+
+
+@dataclass
+class ConnectionMetadata:
+    """Metadata associated with a WebSocket connection."""
+    websocket: WebSocket
+    user_id: UUID
+    conversation_id: str | None = None
+
+
 # Simple connection manager
 class ConnectionManager:
-    """Manages WebSocket connections."""
+    """Manages WebSocket connections with user-level filtering."""
 
     def __init__(self):
-        self.active_connections: dict[str, list[WebSocket]] = {}
+        # Stores connections by tenant_id -> list of ConnectionMetadata
+        self.active_connections: dict[str, list[ConnectionMetadata]] = {}
 
-    async def connect(self, websocket: WebSocket, tenant_id: str):
-        """Connect a WebSocket for a tenant."""
+    async def connect(
+        self,
+        websocket: WebSocket,
+        tenant_id: str,
+        user_id: UUID,
+        conversation_id: str | None = None,
+    ):
+        """Connect a WebSocket for a tenant with user metadata."""
         await websocket.accept()
         if tenant_id not in self.active_connections:
             self.active_connections[tenant_id] = []
-        self.active_connections[tenant_id].append(websocket)
+        metadata = ConnectionMetadata(
+            websocket=websocket,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        )
+        self.active_connections[tenant_id].append(metadata)
 
     def disconnect(self, websocket: WebSocket, tenant_id: str):
         """Disconnect a WebSocket."""
         if tenant_id in self.active_connections:
-            self.active_connections[tenant_id].remove(websocket)
+            self.active_connections[tenant_id] = [
+                conn for conn in self.active_connections[tenant_id]
+                if conn.websocket != websocket
+            ]
             if not self.active_connections[tenant_id]:
                 del self.active_connections[tenant_id]
 
@@ -99,15 +127,67 @@ class ConnectionManager:
         
         # Rebuild list to handle disconnections efficiently
         active = []
-        for connection in self.active_connections[tenant_id]:
+        for conn in self.active_connections[tenant_id]:
             try:
-                await connection.send_json(message)
-                active.append(connection)
+                await conn.websocket.send_json(message)
+                active.append(conn)
             except Exception:
                 # Connection is dead, don't add to active list
                 pass
         
         # Update active connections list
+        self.active_connections[tenant_id] = active
+
+    async def broadcast_to_user(
+        self,
+        message: dict[str, Any],
+        tenant_id: str,
+        user_id: UUID,
+    ):
+        """Broadcast a message only to a specific user's connections."""
+        if tenant_id not in self.active_connections:
+            return
+        
+        active = []
+        for conn in self.active_connections[tenant_id]:
+            try:
+                if conn.user_id == user_id:
+                    await conn.websocket.send_json(message)
+                active.append(conn)
+            except Exception:
+                # Connection is dead, don't add to active list
+                pass
+        
+        self.active_connections[tenant_id] = active
+
+    async def broadcast_to_conversation(
+        self,
+        message: dict[str, Any],
+        tenant_id: str,
+        conversation_id: str,
+        allowed_user_ids: set[UUID] | None = None,
+    ):
+        """
+        Broadcast a message to users subscribed to a specific conversation.
+        
+        If allowed_user_ids is provided, only those users will receive the message.
+        """
+        if tenant_id not in self.active_connections:
+            return
+        
+        active = []
+        for conn in self.active_connections[tenant_id]:
+            try:
+                # Only send to connections subscribed to this conversation
+                if conn.conversation_id == conversation_id:
+                    # If allowed_user_ids is set, filter by user
+                    if allowed_user_ids is None or conn.user_id in allowed_user_ids:
+                        await conn.websocket.send_json(message)
+                active.append(conn)
+            except Exception:
+                # Connection is dead, don't add to active list
+                pass
+        
         self.active_connections[tenant_id] = active
 
 
@@ -127,7 +207,7 @@ async def websocket_messages(
     if not user:
         return  # Connection already closed by authenticate_websocket_user
     
-    await manager.connect(websocket, tenant_id)
+    await manager.connect(websocket, tenant_id, user_id=user.id)
     
     try:
         while True:
@@ -176,7 +256,7 @@ async def websocket_stream(
     if not user:
         return  # Connection already closed by authenticate_websocket_user
     
-    await manager.connect(websocket, tenant_id)
+    await manager.connect(websocket, tenant_id, user_id=user.id, conversation_id=conversation_id)
     
     try:
         while True:
@@ -240,14 +320,32 @@ async def websocket_stream(
 
 
 # Helper function to broadcast message events
-async def broadcast_message_event(tenant_id: str, event_type: str, data: dict):
-    """Broadcast a message event to all connected clients for a tenant."""
-    await manager.broadcast_to_tenant(
-        {
-            "type": "message_event",
-            "event": event_type,
-            "data": data,
-        },
-        tenant_id,
-    )
+async def broadcast_message_event(
+    tenant_id: str,
+    event_type: str,
+    data: dict,
+    user_id: UUID | None = None,
+    conversation_id: str | None = None,
+):
+    """
+    Broadcast a message event to connected clients for a tenant.
+    
+    If user_id is provided, only that user's connections receive the message.
+    If conversation_id is provided, only users subscribed to that conversation receive it.
+    """
+    message = {
+        "type": "message_event",
+        "event": event_type,
+        "data": data,
+    }
+    
+    if user_id:
+        # Send only to specific user
+        await manager.broadcast_to_user(message, tenant_id, user_id)
+    elif conversation_id:
+        # Send to users subscribed to this conversation
+        await manager.broadcast_to_conversation(message, tenant_id, conversation_id)
+    else:
+        # Broadcast to all tenant connections (use sparingly)
+        await manager.broadcast_to_tenant(message, tenant_id)
 

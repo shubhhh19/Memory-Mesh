@@ -21,7 +21,9 @@ services:
       - "6379:6379"
 
   api:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     command: .venv/bin/uvicorn ai_memory_layer.main:app --host 0.0.0.0 --port 8000
     environment:
       MEMORY_DATABASE_URL: postgresql+asyncpg://memory:memory@db:5432/memory_layer
@@ -40,7 +42,9 @@ services:
         condition: service_started
 
   worker:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     command: .venv/bin/memorymesh-worker
     environment:
       MEMORY_DATABASE_URL: postgresql+asyncpg://memory:memory@db:5432/memory_layer

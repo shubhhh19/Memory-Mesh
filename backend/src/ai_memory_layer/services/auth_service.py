@@ -40,11 +40,16 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
     """Create a JWT access token."""
     settings = get_settings()
     secret_key = settings.jwt_secret_key
-    if secret_key == "change-me-in-production" or not secret_key:
-        raise ValueError(
-            "JWT_SECRET_KEY must be set to a secure random value in production. "
-            "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
-        )
+    
+    # Only enforce in production - config.py already validates this
+    if settings.environment in ("production", "prod", "staging"):
+        if secret_key == "change-me-in-production" or not secret_key or len(secret_key) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be set to a secure random value (min 32 chars) in production. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+    elif not secret_key:
+        raise ValueError("JWT_SECRET_KEY must be set")
     
     to_encode = data.copy()
     if expires_delta:
@@ -61,11 +66,16 @@ def create_refresh_token(data: dict[str, Any]) -> str:
     """Create a JWT refresh token."""
     settings = get_settings()
     secret_key = settings.jwt_secret_key
-    if secret_key == "change-me-in-production" or not secret_key:
-        raise ValueError(
-            "JWT_SECRET_KEY must be set to a secure random value in production. "
-            "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
-        )
+    
+    # Only enforce in production - config.py already validates this
+    if settings.environment in ("production", "prod", "staging"):
+        if secret_key == "change-me-in-production" or not secret_key or len(secret_key) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be set to a secure random value (min 32 chars) in production. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+    elif not secret_key:
+        raise ValueError("JWT_SECRET_KEY must be set")
     
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -78,11 +88,16 @@ def verify_token(token: str) -> TokenData:
     """Verify and decode a JWT token."""
     settings = get_settings()
     secret_key = settings.jwt_secret_key
-    if secret_key == "change-me-in-production" or not secret_key:
-        raise ValueError(
-            "JWT_SECRET_KEY must be set to a secure random value in production. "
-            "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
-        )
+    
+    # Only enforce in production - config.py already validates this
+    if settings.environment in ("production", "prod", "staging"):
+        if secret_key == "change-me-in-production" or not secret_key or len(secret_key) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be set to a secure random value (min 32 chars) in production. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+    elif not secret_key:
+        raise ValueError("JWT_SECRET_KEY must be set")
     
     try:
         payload = jwt.decode(token, secret_key, algorithms=[ALGORITHM])
@@ -116,8 +131,14 @@ def verify_token(token: str) -> TokenData:
 
 
 def hash_api_key(key: str) -> str:
-    """Hash an API key for storage."""
-    return hashlib.sha256(key.encode()).hexdigest()
+    """Hash an API key for storage using bcrypt."""
+    # Use bcrypt for API key hashing to resist brute force attacks
+    return pwd_context.hash(key)
+
+
+def verify_api_key_hash(plain_key: str, hashed_key: str) -> bool:
+    """Verify an API key against its bcrypt hash."""
+    return pwd_context.verify(plain_key, hashed_key)
 
 
 def generate_api_key() -> str:
@@ -257,13 +278,17 @@ class AuthService:
 
     async def verify_api_key(self, session: AsyncSession, api_key: str) -> User | None:
         """Verify an API key and return the associated user."""
-        key_hash = hash_api_key(api_key)
-        stmt = select(APIKey).where(
-            APIKey.key_hash == key_hash,
-            APIKey.is_active == True,  # noqa: E712
-        )
+        # Fetch all active API keys and verify with bcrypt
+        # This is necessary because bcrypt hashes include random salts
+        stmt = select(APIKey).where(APIKey.is_active == True)  # noqa: E712
         result = await session.execute(stmt)
-        api_key_obj = result.scalar_one_or_none()
+        api_keys = result.scalars().all()
+        
+        api_key_obj = None
+        for key_obj in api_keys:
+            if verify_api_key_hash(api_key, key_obj.key_hash):
+                api_key_obj = key_obj
+                break
         
         if not api_key_obj:
             return None

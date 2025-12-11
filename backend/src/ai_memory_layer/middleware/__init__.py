@@ -21,6 +21,9 @@ try:
 except ImportError:
     TracingMiddleware = None
 
+# Import CSRF middleware
+from ai_memory_layer.middleware.csrf_middleware import CSRFMiddleware
+
 __all__ = [
     "RequestIDMiddleware",
     "RequestSizeLimitMiddleware",
@@ -28,6 +31,7 @@ __all__ = [
     "TimeoutMiddleware",
     "VersioningMiddleware",
     "TracingMiddleware",
+    "CSRFMiddleware",
     "request_id_ctx_var",
 ]
 

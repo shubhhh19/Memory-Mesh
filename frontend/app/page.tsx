@@ -20,7 +20,11 @@ export default function Home() {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const view = params.get('view');
-            initialTab = view === 'dashboard' ? 'dashboard' : (view === 'landing' ? 'landing' : getNavigationState());
+            if (view === 'dashboard' || view === 'landing') {
+                initialTab = view;
+            } else {
+                initialTab = getNavigationState();
+            }
         }
         setActiveTab(initialTab);
 

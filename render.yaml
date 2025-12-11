@@ -5,9 +5,10 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: pip install -e .
-    startCommand: cd src && python -m uvicorn ai_memory_layer.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: cd backend && pip install -e .
+    startCommand: cd backend/src && python -m uvicorn ai_memory_layer.main:app --host 0.0.0.0 --port $PORT --workers 2 --loop uvloop --timeout-keep-alive 65
     healthCheckPath: /v1/admin/health
+    autoDeploy: false
     envVars:
       - key: MEMORY_DATABASE_URL
         sync: false
@@ -28,9 +29,11 @@ services:
       - key: OAUTH_REDIRECT_URL
         sync: false
       - key: MEMORY_ALLOWED_ORIGINS
-        value: "*"
+        sync: false
       - key: MEMORY_ENVIRONMENT
         value: "production"
-      - key: MEMORY_ASYNC_EMBEDDINGS
-        value: "false"
+      - key: MEMORY_LOG_LEVEL
+        value: "INFO"
+      - key: MEMORY_ENABLE_METRICS
+        value: "true"
 

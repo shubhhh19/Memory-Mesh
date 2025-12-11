@@ -67,26 +67,35 @@ export default function RegisterForm() {
             }
 
             toast.success('Account created successfully');
-            router.push('/dashboard');
-        } catch {
+            router.push('/?view=dashboard');
+        } catch (err) {
             toast.error('An error occurred during registration');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleOAuthLogin = (provider: 'google' | 'github') => {
-        const clientIds = {
-            google: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-            github: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
-        };
+    const handleOAuthLogin = async (provider: 'google' | 'github') => {
+        setLoading(true);
+        try {
+            const redirectUri = `${window.location.origin}/auth/callback`;
+            const response = await memoryMeshAPI.oauthInitiate(provider, redirectUri);
 
-        const redirectUris = {
-            google: `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientIds.google}&redirect_uri=${encodeURIComponent(window.location.origin + '/api/auth/callback')}&response_type=code&scope=email profile&state=${provider}`,
-            github: `https://github.com/login/oauth/authorize?client_id=${clientIds.github}&redirect_uri=${encodeURIComponent(window.location.origin + '/api/auth/callback')}&scope=user:email&state=${provider}`
-        };
+            if (response.error || !response.data) {
+                toast.error(response.error || `${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth is not configured`);
+                setLoading(false);
+                return;
+            }
 
-        window.location.href = redirectUris[provider];
+            // Store provider in session storage for callback
+            sessionStorage.setItem('oauth_provider', provider);
+
+            // Redirect to the authorization URL from backend
+            window.location.href = response.data.authorization_url;
+        } catch {
+            toast.error(`Failed to initiate ${provider} login`);
+            setLoading(false);
+        }
     };
 
 

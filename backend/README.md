@@ -127,7 +127,6 @@ Edit `.env` and set at minimum:
 
 5. **Run database migrations:**
 ```bash
-cd backend
 alembic upgrade head
 ```
 
@@ -136,8 +135,7 @@ alembic upgrade head
 # Using Docker Compose
 docker compose up --build
 
-# Or locally (from backend directory)
-cd backend
+# Or locally
 uvicorn ai_memory_layer.main:app --reload
 ```
 
@@ -346,8 +344,6 @@ Authentication supports both JWT tokens for user sessions and API keys for progr
 ### Running Tests
 
 ```bash
-cd backend
-
 # All tests
 pytest
 
@@ -364,8 +360,6 @@ pytest --cov=src/ai_memory_layer --cov-report=html
 ### Code Quality
 
 ```bash
-cd backend
-
 # Format code
 ruff check --select I --fix .
 
@@ -379,8 +373,6 @@ mypy src
 ### Database Migrations
 
 ```bash
-cd backend
-
 # Create a new migration
 alembic revision --autogenerate -m "description"
 

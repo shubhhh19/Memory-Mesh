@@ -183,30 +183,35 @@ export async function apiRequest<T = any>(
 
             switch (response.status) {
                 case 400:
-                    errorMessage = data?.error || 'Invalid request data';
+                    errorMessage = data?.detail || data?.error || 'Invalid request data';
                     break;
                 case 401:
-                    errorMessage = 'Invalid API key or unauthorized';
-                    // Try to refresh token if we have a refresh token
-                    const refreshToken = getRefreshToken();
-                    if (refreshToken && endpoint !== '/v1/auth/refresh') {
-                        // Attempt token refresh
-                        try {
-                            const refreshResponse = await fetch(`${config.baseUrl}/v1/auth/refresh`, {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${refreshToken}` },
-                            });
-                            if (refreshResponse.ok) {
-                                const refreshData = await refreshResponse.json();
-                                setAuthTokens(refreshData);
-                                // Retry original request
-                                return apiRequest(endpoint, options, includeAuth);
-                            }
-                        } catch {
-                            // Refresh failed, clear tokens
-                            clearAuthTokens();
-                            if (typeof window !== 'undefined') {
-                                window.location.href = '/login';
+                    // For login/register endpoints, show the actual error message
+                    if (endpoint.includes('/auth/login') || endpoint.includes('/auth/register')) {
+                        errorMessage = data?.detail || data?.error || 'Invalid credentials';
+                    } else {
+                        errorMessage = 'Invalid API key or unauthorized';
+                        // Try to refresh token if we have a refresh token
+                        const refreshToken = getRefreshToken();
+                        if (refreshToken && endpoint !== '/v1/auth/refresh') {
+                            // Attempt token refresh
+                            try {
+                                const refreshResponse = await fetch(`${config.baseUrl}/v1/auth/refresh`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${refreshToken}` },
+                                });
+                                if (refreshResponse.ok) {
+                                    const refreshData = await refreshResponse.json();
+                                    setAuthTokens(refreshData);
+                                    // Retry original request
+                                    return apiRequest(endpoint, options, includeAuth);
+                                }
+                            } catch {
+                                // Refresh failed, clear tokens
+                                clearAuthTokens();
+                                if (typeof window !== 'undefined') {
+                                    window.location.href = '/login';
+                                }
                             }
                         }
                     }
@@ -273,6 +278,19 @@ export const memoryMeshAPI = {
     getCurrentUser: () => apiRequest('/v1/auth/me'),
 
     logout: () => apiRequest('/v1/auth/logout', { method: 'POST' }),
+
+    // OAuth
+    oauthInitiate: (provider: 'google' | 'github', redirectUri: string) =>
+        apiRequest('/v1/auth/oauth/initiate', {
+            method: 'POST',
+            body: JSON.stringify({ provider, redirect_uri: redirectUri })
+        }, false),
+
+    oauthCallback: (provider: 'google' | 'github', code: string, state: string) =>
+        apiRequest('/v1/auth/oauth/callback', {
+            method: 'POST',
+            body: JSON.stringify({ provider, code, state })
+        }, false),
 
     // Messages
     storeMessage: (data: {

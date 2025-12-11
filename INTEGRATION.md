@@ -1,520 +1,466 @@
 # Integration Guide
 
-This guide shows you how to connect your application to the memorymesh service.
+This guide provides detailed examples for integrating Memory Mesh into your application using various programming languages and frameworks.
 
-## Quick Start
+## Table of Contents
 
-### 1. Get Your API Key
+- [Python](#python)
+- [JavaScript/TypeScript](#javascripttypescript)
+- [Go](#go)
+- [Authentication](#authentication)
+- [Error Handling](#error-handling)
+- [Best Practices](#best-practices)
 
-First, obtain an API key from your service administrator. The API key is required for all authenticated endpoints.
+## Python
 
-### 2. Base URL
-
-- **Development:** `http://localhost:8000`
-- **Production:** `https://your-memory-service.com`
-
-### 3. Authentication
-
-Include your API key in the `x-api-key` header for all requests:
-
-```http
-x-api-key: your-api-key-here
-```
-
----
-
-## Common Integration Patterns
-
-### Pattern 1: Chatbot with Memory
-
-Store user messages and assistant responses, then search for relevant context before generating responses.
-
-### Pattern 2: Customer Support System
-
-Store support conversations and search for similar past issues to provide faster resolutions.
-
-### Pattern 3: AI Assistant
-
-Remember user preferences and past conversations to provide personalized responses.
-
----
-
-## API Endpoints
-
-### Store a Message
-
-**Endpoint:** `POST /v1/messages`
-
-Store a conversation message with automatic embedding generation.
-
-### Retrieve a Message
-
-**Endpoint:** `GET /v1/messages/{message_id}`
-
-Get a specific message by its UUID.
-
-### Search Memories
-
-**Endpoint:** `GET /v1/memory/search`
-
-Search for relevant past messages using semantic similarity.
-
-### Health Check
-
-**Endpoint:** `GET /v1/admin/health`
-
-Check if the service is running (no authentication required).
-
----
-
-## Integration Examples
-
-### Python
-
-#### Basic Client Class
+### Basic Setup
 
 ```python
-import requests
+import httpx
 from typing import Optional, List, Dict, Any
-from uuid import UUID
 
-class MemoryLayerClient:
-    def __init__(self, base_url: str, api_key: str):
-        self.base_url = base_url.rstrip('/')
-        self.api_key = api_key
-        self.headers = {
-            "x-api-key": api_key,
-            "Content-Type": "application/json"
-        }
-    
-    def store_message(
+class MemoryMeshClient:
+    def __init__(
         self,
-        tenant_id: str,
-        conversation_id: str,
-        role: str,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        importance_override: Optional[float] = None
-    ) -> Dict[str, Any]:
-        """Store a message in the memory layer."""
-        url = f"{self.base_url}/v1/messages"
-        payload = {
+        base_url: str = "http://localhost:8000",
+        access_token: Optional[str] = None,
+        api_key: Optional[str] = None
+    ):
+        self.base_url = base_url.rstrip("/")
+        self.client = httpx.AsyncClient(
+            base_url=self.base_url,
+            headers={
+                "Content-Type": "application/json",
+                **({"Authorization": f"Bearer {access_token}"} if access_token else {}),
+                **({"x-api-key": api_key} if api_key else {}),
+            },
+            timeout=30.0
+        )
+    
+    async def close(self):
+        await self.client.aclose()
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+```
+
+### Authentication
+
+```python
+# Register a new user
+async def register_user(
+    client: httpx.AsyncClient,
+    email: str,
+    username: str,
+    password: str
+) -> Dict[str, Any]:
+    response = await client.post(
+        "/v1/auth/register",
+        json={
+            "email": email,
+            "username": username,
+            "password": password
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+# Login
+async def login(
+    client: httpx.AsyncClient,
+    email: str,
+    password: str
+) -> Dict[str, Any]:
+    response = await client.post(
+        "/v1/auth/login",
+        json={
+            "email": email,
+            "password": password
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+# Usage
+async with httpx.AsyncClient(base_url="http://localhost:8000") as client:
+    # Register
+    user_data = await register_user(client, "user@example.com", "testuser", "SecurePass123")
+    
+    # Login
+    auth_data = await login(client, "user@example.com", "SecurePass123")
+    access_token = auth_data["access_token"]
+    refresh_token = auth_data["refresh_token"]
+```
+
+### Storing Messages
+
+```python
+async def store_message(
+    client: MemoryMeshClient,
+    tenant_id: str,
+    conversation_id: str,
+    role: str,
+    content: str,
+    importance: Optional[float] = None,
+    metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    response = await client.client.post(
+        "/v1/messages",
+        json={
             "tenant_id": tenant_id,
             "conversation_id": conversation_id,
             "role": role,
             "content": content,
-            "metadata": metadata or {},
+            "importance": importance,
+            "metadata": metadata
         }
-        if importance_override is not None:
-            payload["importance_override"] = importance_override
-        
-        response = requests.post(url, json=payload, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
-    
-    def get_message(self, message_id: UUID) -> Dict[str, Any]:
-        """Retrieve a message by ID."""
-        url = f"{self.base_url}/v1/messages/{message_id}"
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
-    
-    def search_memories(
-        self,
-        tenant_id: str,
-        query: str,
-        conversation_id: Optional[str] = None,
-        top_k: int = 5,
-        importance_min: Optional[float] = None
-    ) -> Dict[str, Any]:
-        """Search for relevant memories."""
-        url = f"{self.base_url}/v1/memory/search"
-        params = {
-            "tenant_id": tenant_id,
-            "query": query,
-            "top_k": top_k,
-        }
-        if conversation_id:
-            params["conversation_id"] = conversation_id
-        if importance_min is not None:
-            params["importance_min"] = importance_min
-        
-        response = requests.get(url, params=params, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
+    )
+    response.raise_for_status()
+    return response.json()
 
 # Usage
-client = MemoryLayerClient(
+async with MemoryMeshClient(
     base_url="http://localhost:8000",
-    api_key="your-api-key-here"
-)
-
-# Store a user message
-message = client.store_message(
-    tenant_id="my-app",
-    conversation_id="user-123",
-    role="user",
-    content="I love Python programming",
-    metadata={"channel": "web"}
-)
-print(f"Stored message: {message['id']}")
-
-# Search for relevant memories
-results = client.search_memories(
-    tenant_id="my-app",
-    query="Python programming",
-    top_k=5
-)
-for item in results["items"]:
-    print(f"Found: {item['content']} (score: {item['score']})")
+    access_token="your-access-token"
+) as client:
+    message = await store_message(
+        client,
+        tenant_id="my-app",
+        conversation_id="user-123",
+        role="user",
+        content="I need help with Python programming",
+        importance=0.8,
+        metadata={"source": "web", "session_id": "abc123"}
+    )
+    print(f"Stored message with ID: {message['id']}")
 ```
 
-#### Chatbot Integration Example
+### Batch Operations
 
 ```python
-class ChatbotWithMemory:
-    def __init__(self, memory_client: MemoryLayerClient, tenant_id: str):
-        self.memory = memory_client
-        self.tenant_id = tenant_id
-    
-    def handle_message(self, conversation_id: str, user_message: str) -> str:
-        # Store user message
-        user_msg = self.memory.store_message(
-            tenant_id=self.tenant_id,
-            conversation_id=conversation_id,
-            role="user",
-            content=user_message
-        )
-        
-        # Search for relevant context
-        context = self.memory.search_memories(
-            tenant_id=self.tenant_id,
-            conversation_id=conversation_id,
-            query=user_message,
-            top_k=3
-        )
-        
-        # Build context from search results
-        context_text = "\n".join([
-            f"Previous: {item['content']}"
-            for item in context["items"]
-        ])
-        
-        # Generate response (using your LLM)
-        assistant_response = self.generate_response(
-            user_message=user_message,
-            context=context_text
-        )
-        
-        # Store assistant response
-        self.memory.store_message(
-            tenant_id=self.tenant_id,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=assistant_response
-        )
-        
-        return assistant_response
-    
-    def generate_response(self, user_message: str, context: str) -> str:
-        # Your LLM integration here
-        # Use context to provide better responses
-        pass
+async def batch_create_messages(
+    client: MemoryMeshClient,
+    messages: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    response = await client.client.post(
+        "/v1/messages/batch",
+        json={"messages": messages}
+    )
+    response.raise_for_status()
+    return response.json()
 
 # Usage
-memory_client = MemoryLayerClient(
-    base_url="http://localhost:8000",
-    api_key="your-api-key"
-)
+messages = [
+    {
+        "tenant_id": "my-app",
+        "conversation_id": "user-123",
+        "role": "user",
+        "content": "Hello, how are you?"
+    },
+    {
+        "tenant_id": "my-app",
+        "conversation_id": "user-123",
+        "role": "assistant",
+        "content": "I'm doing well, thank you!"
+    }
+]
 
-chatbot = ChatbotWithMemory(memory_client, tenant_id="my-app")
-response = chatbot.handle_message("user-123", "Tell me about Python")
-print(response)
+result = await batch_create_messages(client, messages)
+print(f"Created {len(result['created'])} messages")
 ```
 
----
+### Semantic Search
 
-### JavaScript/TypeScript
+```python
+async def search_messages(
+    client: MemoryMeshClient,
+    tenant_id: str,
+    query: str,
+    top_k: int = 5,
+    conversation_id: Optional[str] = None,
+    min_importance: Optional[float] = None
+) -> List[Dict[str, Any]]:
+    params = {
+        "tenant_id": tenant_id,
+        "query": query,
+        "top_k": top_k
+    }
+    if conversation_id:
+        params["conversation_id"] = conversation_id
+    if min_importance:
+        params["min_importance"] = min_importance
+    
+    response = await client.client.get("/v1/memory/search", params=params)
+    response.raise_for_status()
+    return response.json()["results"]
 
-#### Basic Client Class
+# Usage
+results = await search_messages(
+    client,
+    tenant_id="my-app",
+    query="Python programming help",
+    top_k=10
+)
+
+for result in results:
+    print(f"Score: {result['score']:.3f}")
+    print(f"Content: {result['content']}")
+    print(f"Role: {result['role']}")
+    print("---")
+```
+
+### Conversation Management
+
+```python
+async def create_conversation(
+    client: MemoryMeshClient,
+    tenant_id: str,
+    conversation_id: str,
+    title: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    response = await client.client.post(
+        "/v1/conversations",
+        json={
+            "tenant_id": tenant_id,
+            "conversation_id": conversation_id,
+            "title": title,
+            "metadata": metadata
+        }
+    )
+    response.raise_for_status()
+    return response.json()
+
+async def get_conversation(
+    client: MemoryMeshClient,
+    conversation_id: str
+) -> Dict[str, Any]:
+    response = await client.client.get(f"/v1/conversations/{conversation_id}")
+    response.raise_for_status()
+    return response.json()
+
+async def list_conversations(
+    client: MemoryMeshClient,
+    tenant_id: str,
+    limit: int = 20,
+    offset: int = 0
+) -> Dict[str, Any]:
+    response = await client.client.get(
+        "/v1/conversations",
+        params={"tenant_id": tenant_id, "limit": limit, "offset": offset}
+    )
+    response.raise_for_status()
+    return response.json()
+```
+
+## JavaScript/TypeScript
+
+### Basic Setup
 
 ```typescript
-interface MessageCreate {
-  tenant_id: string;
-  conversation_id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  metadata?: Record<string, any>;
-  importance_override?: number;
+interface MemoryMeshClientOptions {
+  baseUrl: string;
+  accessToken?: string;
+  apiKey?: string;
 }
 
-interface MessageResponse {
-  id: string;
-  tenant_id: string;
-  conversation_id: string;
-  role: string;
-  content: string;
-  metadata: Record<string, any>;
-  importance_score: number | null;
-  embedding_status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface SearchResponse {
-  total: number;
-  items: Array<{
-    message_id: string;
-    score: number;
-    similarity: number;
-    decay: number;
-    content: string;
-    role: string;
-    metadata: Record<string, any>;
-    created_at: string;
-    importance: number | null;
-  }>;
-}
-
-class MemoryLayerClient {
+class MemoryMeshClient {
   private baseUrl: string;
-  private apiKey: string;
-  private headers: HeadersInit;
+  private headers: Record<string, string>;
 
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.apiKey = apiKey;
+  constructor(options: MemoryMeshClientOptions) {
+    this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.headers = {
-      'x-api-key': apiKey,
       'Content-Type': 'application/json',
+      ...(options.accessToken && { Authorization: `Bearer ${options.accessToken}` }),
+      ...(options.apiKey && { 'x-api-key': options.apiKey }),
     };
   }
 
-  async storeMessage(data: MessageCreate): Promise<MessageResponse> {
-    const response = await fetch(`${this.baseUrl}/v1/messages`, {
-      method: 'POST',
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: any,
+    params?: Record<string, any>
+  ): Promise<T> {
+    const url = new URL(`${this.baseUrl}${path}`);
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        url.searchParams.append(key, String(value));
+      });
+    }
+
+    const response = await fetch(url.toString(), {
+      method,
       headers: this.headers,
-      body: JSON.stringify(data),
+      body: body ? JSON.stringify(body) : undefined,
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to store message: ${response.statusText}`);
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || `HTTP ${response.status}`);
     }
 
     return response.json();
   }
+}
+```
 
-  async getMessage(messageId: string): Promise<MessageResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/v1/messages/${messageId}`,
-      {
-        headers: this.headers,
-      }
-    );
+### Authentication
 
-    if (!response.ok) {
-      throw new Error(`Failed to get message: ${response.statusText}`);
-    }
+```typescript
+// Register
+async function registerUser(
+  client: MemoryMeshClient,
+  email: string,
+  username: string,
+  password: string
+): Promise<any> {
+  return client.request('POST', '/v1/auth/register', {
+    email,
+    username,
+    password,
+  });
+}
 
-    return response.json();
-  }
-
-  async searchMemories(
-    tenantId: string,
-    query: string,
-    options?: {
-      conversationId?: string;
-      topK?: number;
-      importanceMin?: number;
-    }
-  ): Promise<SearchResponse> {
-    const params = new URLSearchParams({
-      tenant_id: tenantId,
-      query: query,
-      top_k: String(options?.topK || 5),
-    });
-
-    if (options?.conversationId) {
-      params.append('conversation_id', options.conversationId);
-    }
-    if (options?.importanceMin !== undefined) {
-      params.append('importance_min', String(options.importanceMin));
-    }
-
-    const response = await fetch(
-      `${this.baseUrl}/v1/memory/search?${params}`,
-      {
-        headers: this.headers,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to search: ${response.statusText}`);
-    }
-
-    return response.json();
-  }
+// Login
+async function login(
+  client: MemoryMeshClient,
+  email: string,
+  password: string
+): Promise<{ access_token: string; refresh_token: string }> {
+  return client.request('POST', '/v1/auth/login', {
+    email,
+    password,
+  });
 }
 
 // Usage
-const client = new MemoryLayerClient(
-  'http://localhost:8000',
-  'your-api-key-here'
-);
+const client = new MemoryMeshClient({ baseUrl: 'http://localhost:8000' });
+const authData = await login(client, 'user@example.com', 'SecurePass123');
+const authenticatedClient = new MemoryMeshClient({
+  baseUrl: 'http://localhost:8000',
+  accessToken: authData.access_token,
+});
+```
 
-// Store a message
-const message = await client.storeMessage({
+### Storing Messages
+
+```typescript
+interface MessageInput {
+  tenant_id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  importance?: number;
+  metadata?: Record<string, any>;
+}
+
+async function storeMessage(
+  client: MemoryMeshClient,
+  message: MessageInput
+): Promise<any> {
+  return client.request('POST', '/v1/messages', message);
+}
+
+// Usage
+const message = await storeMessage(authenticatedClient, {
   tenant_id: 'my-app',
   conversation_id: 'user-123',
   role: 'user',
-  content: 'I love TypeScript',
-  metadata: { channel: 'web' },
-});
-
-console.log('Stored message:', message.id);
-
-// Search memories
-const results = await client.searchMemories('my-app', 'TypeScript', {
-  topK: 5,
-});
-
-results.items.forEach((item) => {
-  console.log(`Found: ${item.content} (score: ${item.score})`);
+  content: 'I need help with TypeScript',
+  importance: 0.8,
+  metadata: { source: 'web' },
 });
 ```
 
-#### React Hook Example
+### Semantic Search
 
 ```typescript
-import { useState, useCallback } from 'react';
+interface SearchOptions {
+  tenant_id: string;
+  query: string;
+  top_k?: number;
+  conversation_id?: string;
+  min_importance?: number;
+}
 
-function useMemoryLayer(baseUrl: string, apiKey: string) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+async function searchMessages(
+  client: MemoryMeshClient,
+  options: SearchOptions
+): Promise<Array<{ id: string; content: string; score: number; role: string }>> {
+  const result = await client.request<{ results: any[] }>(
+    'GET',
+    '/v1/memory/search',
+    undefined,
+    options
+  );
+  return result.results;
+}
 
-  const storeMessage = useCallback(async (data: MessageCreate) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`${baseUrl}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error(response.statusText);
-      return await response.json();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [baseUrl, apiKey]);
+// Usage
+const results = await searchMessages(authenticatedClient, {
+  tenant_id: 'my-app',
+  query: 'TypeScript help',
+  top_k: 10,
+});
 
-  const searchMemories = useCallback(async (
-    tenantId: string,
-    query: string,
-    options?: { conversationId?: string; topK?: number }
-  ) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        tenant_id: tenantId,
-        query: query,
-        top_k: String(options?.topK || 5),
-      });
-      if (options?.conversationId) {
-        params.append('conversation_id', options.conversationId);
-      }
-      const response = await fetch(
-        `${baseUrl}/v1/memory/search?${params}`,
-        {
-          headers: { 'x-api-key': apiKey },
-        }
-      );
-      if (!response.ok) throw new Error(response.statusText);
-      return await response.json();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [baseUrl, apiKey]);
+results.forEach((result) => {
+  console.log(`Score: ${result.score.toFixed(3)}`);
+  console.log(`Content: ${result.content}`);
+});
+```
 
-  return { storeMessage, searchMemories, loading, error };
+### React Hook Example
+
+```typescript
+import { useState, useEffect } from 'react';
+
+function useMemoryMesh(baseUrl: string, accessToken?: string) {
+  const [client] = useState(() => new MemoryMeshClient({ baseUrl, accessToken }));
+
+  const search = async (tenantId: string, query: string, topK = 5) => {
+    return searchMessages(client, {
+      tenant_id: tenantId,
+      query,
+      top_k: topK,
+    });
+  };
+
+  const store = async (message: MessageInput) => {
+    return storeMessage(client, message);
+  };
+
+  return { search, store };
 }
 
 // Usage in component
-function ChatComponent() {
-  const { storeMessage, searchMemories, loading } = useMemoryLayer(
-    'http://localhost:8000',
-    'your-api-key'
-  );
+function SearchComponent() {
+  const { search, store } = useMemoryMesh('http://localhost:8000', 'token');
+  const [results, setResults] = useState([]);
 
-  const handleSend = async (message: string) => {
-    // Store user message
-    await storeMessage({
-      tenant_id: 'my-app',
-      conversation_id: 'user-123',
-      role: 'user',
-      content: message,
-    });
-
-    // Search for context
-    const context = await searchMemories('my-app', message, {
-      conversationId: 'user-123',
-      topK: 3,
-    });
-
-    // Use context to generate response
-    console.log('Context:', context);
+  const handleSearch = async (query: string) => {
+    const searchResults = await search('my-app', query);
+    setResults(searchResults);
   };
 
-  return <div>...</div>;
+  return (
+    <div>
+      <input onKeyPress={(e) => e.key === 'Enter' && handleSearch(e.target.value)} />
+      {results.map((r) => (
+        <div key={r.id}>{r.content}</div>
+      ))}
+    </div>
+  );
 }
 ```
 
----
+## Go
 
-### cURL Examples
-
-#### Store a Message
-
-```bash
-curl -X POST http://localhost:8000/v1/messages \
-  -H "x-api-key: your-api-key-here" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tenant_id": "my-app",
-    "conversation_id": "user-123",
-    "role": "user",
-    "content": "I love Python programming",
-    "metadata": {"channel": "web"}
-  }'
-```
-
-#### Search Memories
-
-```bash
-curl "http://localhost:8000/v1/memory/search?tenant_id=my-app&query=Python&top_k=5" \
-  -H "x-api-key: your-api-key-here"
-```
-
-#### Get Message by ID
-
-```bash
-curl "http://localhost:8000/v1/messages/123e4567-e89b-12d3-a456-426614174000" \
-  -H "x-api-key: your-api-key-here"
-```
-
----
-
-### Go
+### Basic Setup
 
 ```go
 package main
@@ -525,345 +471,375 @@ import (
     "fmt"
     "io"
     "net/http"
+    "time"
 )
 
-type MemoryLayerClient struct {
-    BaseURL string
-    APIKey  string
+type MemoryMeshClient struct {
+    BaseURL     string
+    AccessToken string
+    APIKey      string
+    HTTPClient  *http.Client
 }
 
-type MessageCreate struct {
-    TenantID          string                 `json:"tenant_id"`
-    ConversationID    string                 `json:"conversation_id"`
-    Role              string                 `json:"role"`
-    Content           string                 `json:"content"`
-    Metadata         map[string]interface{} `json:"metadata,omitempty"`
-    ImportanceOverride *float64              `json:"importance_override,omitempty"`
+func NewMemoryMeshClient(baseURL, accessToken, apiKey string) *MemoryMeshClient {
+    return &MemoryMeshClient{
+        BaseURL:     baseURL,
+        AccessToken: accessToken,
+        APIKey:      apiKey,
+        HTTPClient: &http.Client{
+            Timeout: 30 * time.Second,
+        },
+    }
 }
 
-type MessageResponse struct {
-    ID              string                 `json:"id"`
-    TenantID        string                 `json:"tenant_id"`
-    ConversationID string                 `json:"conversation_id"`
-    Role            string                 `json:"role"`
-    Content         string                 `json:"content"`
-    Metadata        map[string]interface{} `json:"metadata"`
-    ImportanceScore *float64               `json:"importance_score"`
-    EmbeddingStatus string                 `json:"embedding_status"`
-    CreatedAt       string                 `json:"created_at"`
-    UpdatedAt       string                 `json:"updated_at"`
-}
+func (c *MemoryMeshClient) request(method, path string, body interface{}) ([]byte, error) {
+    var reqBody io.Reader
+    if body != nil {
+        jsonData, err := json.Marshal(body)
+        if err != nil {
+            return nil, err
+        }
+        reqBody = bytes.NewBuffer(jsonData)
+    }
 
-func (c *MemoryLayerClient) StoreMessage(msg MessageCreate) (*MessageResponse, error) {
-    jsonData, err := json.Marshal(msg)
+    req, err := http.NewRequest(method, c.BaseURL+path, reqBody)
     if err != nil {
         return nil, err
     }
 
-    req, err := http.NewRequest("POST", c.BaseURL+"/v1/messages", bytes.NewBuffer(jsonData))
-    if err != nil {
-        return nil, err
-    }
-
-    req.Header.Set("x-api-key", c.APIKey)
     req.Header.Set("Content-Type", "application/json")
+    if c.AccessToken != "" {
+        req.Header.Set("Authorization", "Bearer "+c.AccessToken)
+    }
+    if c.APIKey != "" {
+        req.Header.Set("x-api-key", c.APIKey)
+    }
 
-    client := &http.Client{}
-    resp, err := client.Do(req)
+    resp, err := c.HTTPClient.Do(req)
     if err != nil {
         return nil, err
     }
     defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-        body, _ := io.ReadAll(resp.Body)
-        return nil, fmt.Errorf("API error: %s", string(body))
+    if resp.StatusCode >= 400 {
+        return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
     }
 
-    var message MessageResponse
-    if err := json.NewDecoder(resp.Body).Decode(&message); err != nil {
+    return io.ReadAll(resp.Body)
+}
+```
+
+### Storing Messages
+
+```go
+type Message struct {
+    TenantID       string                 `json:"tenant_id"`
+    ConversationID string                 `json:"conversation_id"`
+    Role          string                 `json:"role"`
+    Content       string                 `json:"content"`
+    Importance    *float64               `json:"importance,omitempty"`
+    Metadata      map[string]interface{} `json:"metadata,omitempty"`
+}
+
+func (c *MemoryMeshClient) StoreMessage(msg Message) (map[string]interface{}, error) {
+    data, err := c.request("POST", "/v1/messages", msg)
+    if err != nil {
         return nil, err
     }
 
-    return &message, nil
+    var result map[string]interface{}
+    if err := json.Unmarshal(data, &result); err != nil {
+        return nil, err
+    }
+    return result, nil
 }
 
 // Usage
-func main() {
-    client := &MemoryLayerClient{
-        BaseURL: "http://localhost:8000",
-        APIKey:  "your-api-key-here",
+client := NewMemoryMeshClient("http://localhost:8000", "your-token", "")
+message := Message{
+    TenantID:       "my-app",
+    ConversationID: "user-123",
+    Role:          "user",
+    Content:       "I need help with Go programming",
+}
+result, err := client.StoreMessage(message)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Stored message: %v\n", result)
+```
+
+### Semantic Search
+
+```go
+type SearchParams struct {
+    TenantID       string  `json:"tenant_id"`
+    Query         string  `json:"query"`
+    TopK          int     `json:"top_k,omitempty"`
+    ConversationID string `json:"conversation_id,omitempty"`
+    MinImportance *float64 `json:"min_importance,omitempty"`
+}
+
+type SearchResult struct {
+    Results []struct {
+        ID       string  `json:"id"`
+        Content  string  `json:"content"`
+        Score    float64 `json:"score"`
+        Role     string  `json:"role"`
+    } `json:"results"`
+}
+
+func (c *MemoryMeshClient) Search(params SearchParams) (*SearchResult, error) {
+    query := fmt.Sprintf(
+        "tenant_id=%s&query=%s&top_k=%d",
+        params.TenantID,
+        params.Query,
+        params.TopK,
+    )
+    if params.ConversationID != "" {
+        query += "&conversation_id=" + params.ConversationID
     }
 
-    message, err := client.StoreMessage(MessageCreate{
-        TenantID:       "my-app",
-        ConversationID:  "user-123",
-        Role:           "user",
-        Content:        "I love Go programming",
-    })
-
+    data, err := c.request("GET", "/v1/memory/search?"+query, nil)
     if err != nil {
-        fmt.Printf("Error: %v\n", err)
-        return
+        return nil, err
     }
 
-    fmt.Printf("Stored message: %s\n", message.ID)
+    var result SearchResult
+    if err := json.Unmarshal(data, &result); err != nil {
+        return nil, err
+    }
+    return &result, nil
+}
+
+// Usage
+results, err := client.Search(SearchParams{
+    TenantID: "my-app",
+    Query:   "Go programming help",
+    TopK:    10,
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, result := range results.Results {
+    fmt.Printf("Score: %.3f - %s\n", result.Score, result.Content)
 }
 ```
 
----
+## Authentication
+
+### Token Refresh
+
+```python
+async def refresh_token(
+    client: httpx.AsyncClient,
+    refresh_token: str
+) -> Dict[str, Any]:
+    response = await client.post(
+        "/v1/auth/refresh",
+        json={"refresh_token": refresh_token}
+    )
+    response.raise_for_status()
+    return response.json()
+```
+
+### API Key Authentication
+
+```python
+# Create API key (requires authentication)
+async def create_api_key(
+    client: MemoryMeshClient,
+    name: str,
+    expires_days: Optional[int] = None
+) -> Dict[str, Any]:
+    response = await client.client.post(
+        "/v1/auth/api-keys",
+        json={"name": name, "expires_days": expires_days}
+    )
+    response.raise_for_status()
+    return response.json()
+
+# Use API key
+client = MemoryMeshClient(
+    base_url="http://localhost:8000",
+    api_key="your-api-key-here"
+)
+```
 
 ## Error Handling
 
-### Common HTTP Status Codes
-
-- **200 OK**: Request successful
-- **202 Accepted**: Message stored, embedding processing in background
-- **400 Bad Request**: Invalid request data
-- **401 Unauthorized**: Missing or invalid API key
-- **404 Not Found**: Message not found
-- **429 Too Many Requests**: Rate limit exceeded
-- **500 Internal Server Error**: Server error
-
-### Python Error Handling Example
+### Python
 
 ```python
-import requests
-from requests.exceptions import RequestException
+import httpx
 
-try:
-    response = client.store_message(...)
-except requests.exceptions.HTTPError as e:
-    if e.response.status_code == 401:
-        print("Invalid API key")
-    elif e.response.status_code == 429:
-        print("Rate limit exceeded")
-        retry_after = e.response.headers.get('Retry-After')
-        print(f"Retry after {retry_after} seconds")
-    else:
-        print(f"HTTP error: {e}")
-except RequestException as e:
-    print(f"Request failed: {e}")
+async def store_message_safe(client: MemoryMeshClient, message: Dict[str, Any]):
+    try:
+        return await store_message(client, message)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            # Token expired, refresh and retry
+            print("Token expired, please refresh")
+        elif e.response.status_code == 429:
+            # Rate limited
+            retry_after = e.response.headers.get("Retry-After", "60")
+            print(f"Rate limited, retry after {retry_after} seconds")
+        else:
+            print(f"Error: {e.response.status_code} - {e.response.text}")
+        raise
+    except httpx.RequestError as e:
+        print(f"Network error: {e}")
+        raise
 ```
 
----
+### JavaScript/TypeScript
+
+```typescript
+async function storeMessageSafe(
+  client: MemoryMeshClient,
+  message: MessageInput
+): Promise<any> {
+  try {
+    return await storeMessage(client, message);
+  } catch (error: any) {
+    if (error.message.includes('401')) {
+      console.error('Authentication failed, please refresh token');
+    } else if (error.message.includes('429')) {
+      console.error('Rate limited, please retry later');
+    } else {
+      console.error('Error storing message:', error);
+    }
+    throw error;
+  }
+}
+```
 
 ## Best Practices
 
-### 1. Tenant ID Strategy
-
-Use a consistent tenant ID format:
-- **Single Application**: Use your app name (e.g., `"my-chatbot"`)
-- **Multi-tenant SaaS**: Use user/organization IDs (e.g., `"org-123"`)
-- **Development**: Use environment-specific IDs (e.g., `"dev-app"`)
-
-### 2. Conversation ID Strategy
-
-- **Per User**: Use user ID (e.g., `"user-123"`)
-- **Per Session**: Use session ID (e.g., `"session-abc"`)
-- **Per Thread**: Use thread/topic ID (e.g., `"thread-xyz"`)
-
-### 3. Message Storage
+### 1. Connection Pooling
 
 ```python
-# Store both user and assistant messages
-client.store_message(
+# Reuse client instances
+client = MemoryMeshClient(
+    base_url="http://localhost:8000",
+    access_token=access_token
+)
+
+# Use async context manager
+async with client:
+    # Multiple operations
+    await store_message(client, ...)
+    await search_messages(client, ...)
+```
+
+### 2. Retry Logic
+
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10)
+)
+async def store_message_with_retry(client: MemoryMeshClient, message: Dict[str, Any]):
+    return await store_message(client, message)
+```
+
+### 3. Batch Operations
+
+Always use batch endpoints when storing multiple messages:
+
+```python
+# Good: Batch operation
+messages = [message1, message2, message3]
+await batch_create_messages(client, messages)
+
+# Avoid: Multiple individual requests
+for message in messages:
+    await store_message(client, message)  # Slower
+```
+
+### 4. Caching
+
+Cache search results when appropriate:
+
+```python
+from functools import lru_cache
+import hashlib
+
+@lru_cache(maxsize=100)
+async def cached_search(client: MemoryMeshClient, tenant_id: str, query: str):
+    return await search_messages(client, tenant_id, query, top_k=5)
+```
+
+### 5. Error Handling
+
+Always handle errors gracefully:
+
+```python
+try:
+    result = await store_message(client, message)
+except httpx.HTTPStatusError as e:
+    if e.response.status_code == 400:
+        # Validation error
+        errors = e.response.json()
+        print(f"Validation errors: {errors}")
+    elif e.response.status_code == 401:
+        # Authentication error
+        print("Please authenticate")
+    else:
+        print(f"Unexpected error: {e}")
+```
+
+### 6. Type Safety
+
+Use type hints and Pydantic models:
+
+```python
+from pydantic import BaseModel
+
+class MessageInput(BaseModel):
+    tenant_id: str
+    conversation_id: str
+    role: str
+    content: str
+    importance: float | None = None
+    metadata: dict[str, Any] | None = None
+
+message = MessageInput(
     tenant_id="my-app",
     conversation_id="user-123",
     role="user",
-    content=user_message
-)
-
-client.store_message(
-    tenant_id="my-app",
-    conversation_id="user-123",
-    role="assistant",
-    content=assistant_response
+    content="Hello"
 )
 ```
 
-### 4. Search Optimization
+## WebSocket Integration
 
-- Use `conversation_id` to limit search to specific conversations
-- Set `importance_min` to filter low-importance messages
-- Adjust `top_k` based on your use case (3-10 is usually optimal)
-
-### 5. Async Embeddings
-
-If using async embeddings (`MEMORY_ASYNC_EMBEDDINGS=true`):
-- Messages return `202 Accepted` immediately
-- Embeddings are processed in background
-- Search may not find messages until embeddings complete
-- Poll message status or wait before searching
-
-### 6. Rate Limiting
-
-The service enforces rate limits. Check response headers:
-- `X-RateLimit-Limit`: Maximum requests per window
-- `X-RateLimit-Remaining`: Remaining requests
-- `X-RateLimit-Reset`: When the limit resets
-- `Retry-After`: Seconds to wait (when rate limited)
-
----
-
-## Complete Integration Example
-
-### Python Chatbot with Memory
+### Real-time Updates
 
 ```python
-import requests
-from typing import List, Dict, Any
+import asyncio
+import websockets
+import json
 
-class Chatbot:
-    def __init__(self, memory_url: str, api_key: str, tenant_id: str):
-        self.memory_url = memory_url
-        self.api_key = api_key
-        self.tenant_id = tenant_id
-        self.headers = {
-            "x-api-key": api_key,
-            "Content-Type": "application/json"
-        }
+async def listen_for_updates(tenant_id: str, access_token: str):
+    uri = f"ws://localhost:8000/ws/messages/{tenant_id}"
+    headers = {"Authorization": f"Bearer {access_token}"}
     
-    def chat(self, user_id: str, message: str) -> str:
-        conversation_id = f"user-{user_id}"
-        
-        # 1. Store user message
-        user_msg = self._store_message(
-            conversation_id=conversation_id,
-            role="user",
-            content=message
-        )
-        
-        # 2. Search for relevant context
-        context = self._search_memories(
-            conversation_id=conversation_id,
-            query=message,
-            top_k=5
-        )
-        
-        # 3. Build context string
-        context_messages = [
-            f"{item['role']}: {item['content']}"
-            for item in context["items"]
-        ]
-        
-        # 4. Generate response (using your LLM)
-        response = self._generate_response(
-            user_message=message,
-            context="\n".join(context_messages)
-        )
-        
-        # 5. Store assistant response
-        self._store_message(
-            conversation_id=conversation_id,
-            role="assistant",
-            content=response
-        )
-        
-        return response
-    
-    def _store_message(self, conversation_id: str, role: str, content: str):
-        response = requests.post(
-            f"{self.memory_url}/v1/messages",
-            json={
-                "tenant_id": self.tenant_id,
-                "conversation_id": conversation_id,
-                "role": role,
-                "content": content
-            },
-            headers=self.headers
-        )
-        response.raise_for_status()
-        return response.json()
-    
-    def _search_memories(self, conversation_id: str, query: str, top_k: int):
-        response = requests.get(
-            f"{self.memory_url}/v1/memory/search",
-            params={
-                "tenant_id": self.tenant_id,
-                "conversation_id": conversation_id,
-                "query": query,
-                "top_k": top_k
-            },
-            headers=self.headers
-        )
-        response.raise_for_status()
-        return response.json()
-    
-    def _generate_response(self, user_message: str, context: str) -> str:
-        # Integrate with your LLM (OpenAI, Anthropic, etc.)
-        # Use context to provide better responses
-        pass
+    async with websockets.connect(uri, extra_headers=headers) as websocket:
+        async for message in websocket:
+            data = json.loads(message)
+            print(f"New message: {data}")
 
 # Usage
-chatbot = Chatbot(
-    memory_url="http://localhost:8000",
-    api_key="your-api-key",
-    tenant_id="my-app"
-)
-
-response = chatbot.chat("user-123", "What did we talk about earlier?")
-print(response)
+asyncio.run(listen_for_updates("my-app", "your-token"))
 ```
 
----
+## Next Steps
 
-## Testing Your Integration
-
-### 1. Health Check
-
-```bash
-curl http://localhost:8000/v1/admin/health
-```
-
-### 2. Test Authentication
-
-```bash
-# Should fail without API key
-curl -X POST http://localhost:8000/v1/messages \
-  -H "Content-Type: application/json" \
-  -d '{"tenant_id":"test","conversation_id":"c1","role":"user","content":"test"}'
-
-# Should succeed with API key
-curl -X POST http://localhost:8000/v1/messages \
-  -H "x-api-key: your-api-key" \
-  -H "Content-Type: application/json" \
-  -d '{"tenant_id":"test","conversation_id":"c1","role":"user","content":"test"}'
-```
-
-### 3. Test Full Flow
-
-```python
-# 1. Store a message
-message = client.store_message(...)
-
-# 2. Wait a moment for embedding (if async)
-import time
-time.sleep(2)
-
-# 3. Search for it
-results = client.search_memories(..., query="similar text")
-
-# 4. Verify results
-assert len(results["items"]) > 0
-```
-
----
-
-## API Documentation
-
-Interactive API documentation is available at:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
-- **OpenAPI JSON**: `http://localhost:8000/openapi.json`
-
----
-
-## Support
-
-For issues or questions:
-1. Check the API documentation at `/docs`
-2. Review error messages in responses
-3. Check service health at `/v1/admin/health`
-4. Review logs for detailed error information
+- Check the [API Reference](http://localhost:8000/docs) for complete endpoint documentation
+- See [README.md](README.md) for more examples
+- Review [README_PRODUCTION.md](README_PRODUCTION.md) for production deployment guidance
 

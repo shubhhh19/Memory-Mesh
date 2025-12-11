@@ -18,6 +18,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY src ./src
+COPY static ./static
 
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir uv && \

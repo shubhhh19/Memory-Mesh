@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from datetime import timedelta
 from typing import Annotated
 
@@ -10,13 +11,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_memory_layer.database import get_session
-from ai_memory_layer.models.user import UserRole
+from ai_memory_layer.models.user import User, UserRole
 from ai_memory_layer.schemas.auth import (
     APIKeyCreate,
     APIKeyListResponse,
     APIKeyResponse,
     LoginRequest,
     OAuthCallbackRequest,
+    OAuthLoginRequest,
     PasswordChange,
     Token,
     UserCreate,
@@ -25,10 +27,133 @@ from ai_memory_layer.schemas.auth import (
 )
 from ai_memory_layer.security import get_current_active_user, get_current_user
 from ai_memory_layer.services.auth_service import ACCESS_TOKEN_EXPIRE_MINUTES, AuthService, create_access_token, create_refresh_token
+from ai_memory_layer.logging import get_logger
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 auth_service = AuthService()
 bearer_scheme = HTTPBearer()
+logger = get_logger(component=__name__)
+
+OAUTH_STATE_TTL_SECONDS = 300  # 5 minutes
+OAUTH_STATE_PREFIX = "oauth:state:"
+OAUTH_STATE_MAX_FALLBACK_SIZE = 1000  # Maximum entries in fallback store
+
+# In-memory fallback for development (Redis is used in production)
+_oauth_states_fallback: dict[str, tuple[str, float]] = {}
+
+# Singleton Redis client for OAuth state operations (connection pooling)
+_oauth_redis_client = None
+
+
+def _cleanup_expired_states_fallback() -> None:
+    """Remove expired OAuth state tokens and enforce size limit on fallback store."""
+    import time
+    current_time = time.time()
+    
+    # Remove expired entries
+    expired_keys = [k for k, (_, exp) in _oauth_states_fallback.items() if exp < current_time]
+    for key in expired_keys:
+        _oauth_states_fallback.pop(key, None)
+    
+    # Enforce size limit by removing oldest entries
+    if len(_oauth_states_fallback) >= OAUTH_STATE_MAX_FALLBACK_SIZE:
+        # Sort by expiration time and remove oldest entries
+        sorted_items = sorted(_oauth_states_fallback.items(), key=lambda x: x[1][1])
+        entries_to_remove = len(_oauth_states_fallback) - OAUTH_STATE_MAX_FALLBACK_SIZE + 100  # Remove 100 extra
+        for key, _ in sorted_items[:entries_to_remove]:
+            _oauth_states_fallback.pop(key, None)
+
+
+async def _get_oauth_redis_client():
+    """Get or create a singleton Redis client for OAuth state storage with connection pooling."""
+    global _oauth_redis_client
+    
+    from ai_memory_layer.config import get_settings
+    settings = get_settings()
+    if not settings.redis_url:
+        return None
+    
+    # Return existing client if available
+    if _oauth_redis_client is not None:
+        try:
+            # Verify connection is still alive
+            await _oauth_redis_client.ping()
+            return _oauth_redis_client
+        except Exception:
+            # Connection is dead, reset and create new one
+            _oauth_redis_client = None
+    
+    try:
+        import redis.asyncio as redis_asyncio
+        # Create client with connection pool (default pool size is 10)
+        _oauth_redis_client = redis_asyncio.from_url(
+            settings.redis_url,
+            decode_responses=True,
+        )
+        return _oauth_redis_client
+    except ImportError:
+        return None
+    except Exception as e:
+        logger.warning("oauth_redis_connection_failed", error=str(e))
+        return None
+
+
+async def _generate_oauth_state(redirect_uri: str) -> str:
+    """Generate and store a secure OAuth state token (uses Redis in production)."""
+    import time
+    import json
+    
+    state = secrets.token_urlsafe(32)
+    state_data = json.dumps({"redirect_uri": redirect_uri})
+    
+    # Try Redis first (production)
+    redis_client = await _get_oauth_redis_client()
+    if redis_client:
+        try:
+            await redis_client.setex(
+                f"{OAUTH_STATE_PREFIX}{state}",
+                OAUTH_STATE_TTL_SECONDS,
+                state_data,
+            )
+            return state
+        except Exception as e:
+            logger.warning("oauth_state_redis_store_failed", error=str(e))
+    
+    # Fallback to in-memory (development only)
+    _cleanup_expired_states_fallback()
+    _oauth_states_fallback[state] = (redirect_uri, time.time() + OAUTH_STATE_TTL_SECONDS)
+    return state
+
+
+async def _validate_oauth_state(state: str | None) -> str | None:
+    """Validate OAuth state token and return the associated redirect_uri."""
+    import time
+    import json
+    
+    if not state:
+        return None
+    
+    # Try Redis first (production)
+    redis_client = await _get_oauth_redis_client()
+    if redis_client:
+        try:
+            state_data = await redis_client.get(f"{OAUTH_STATE_PREFIX}{state}")
+            if state_data:
+                # Delete to ensure one-time use
+                await redis_client.delete(f"{OAUTH_STATE_PREFIX}{state}")
+                data = json.loads(state_data)
+                return data.get("redirect_uri")
+        except Exception as e:
+            logger.warning("oauth_state_redis_validate_failed", error=str(e))
+    
+    # Fallback to in-memory (development only)
+    state_data = _oauth_states_fallback.pop(state, None)
+    if not state_data:
+        return None
+    redirect_uri, expires_at = state_data
+    if time.time() > expires_at:
+        return None
+    return redirect_uri
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -301,6 +426,54 @@ async def delete_api_key(
     return {"message": "API key deleted successfully"}
 
 
+@router.post("/oauth/initiate")
+async def oauth_initiate(
+    oauth_data: OAuthLoginRequest,
+) -> dict[str, str]:
+    """Initiate OAuth flow by generating state and returning the authorization URL."""
+    from ai_memory_layer.config import get_settings
+    
+    settings = get_settings()
+    state = await _generate_oauth_state(oauth_data.redirect_uri)
+    
+    if oauth_data.provider.value == "google":
+        client_id = settings.google_client_id
+        if not client_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google OAuth not configured"
+            )
+        auth_url = (
+            f"https://accounts.google.com/o/oauth2/v2/auth"
+            f"?client_id={client_id}"
+            f"&redirect_uri={oauth_data.redirect_uri}"
+            f"&response_type=code"
+            f"&scope=email%20profile"
+            f"&state={state}"
+        )
+    elif oauth_data.provider.value == "github":
+        client_id = settings.github_client_id
+        if not client_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="GitHub OAuth not configured"
+            )
+        auth_url = (
+            f"https://github.com/login/oauth/authorize"
+            f"?client_id={client_id}"
+            f"&redirect_uri={oauth_data.redirect_uri}"
+            f"&scope=user:email"
+            f"&state={state}"
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported OAuth provider: {oauth_data.provider}"
+        )
+    
+    return {"authorization_url": auth_url, "state": state}
+
+
 @router.post("/oauth/callback", response_model=Token)
 async def oauth_callback(
     callback_data: OAuthCallbackRequest,
@@ -312,6 +485,15 @@ async def oauth_callback(
     from ai_memory_layer.config import get_settings
     
     settings = get_settings()
+    
+    # Validate state parameter to prevent CSRF attacks
+    redirect_uri = await _validate_oauth_state(callback_data.state)
+    if redirect_uri is None:
+        logger.warning("oauth_csrf_attempt", provider=callback_data.provider.value)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired state parameter. Please restart the OAuth flow."
+        )
     
     # Exchange code for access token based on provider
     if callback_data.provider == "google":
@@ -335,15 +517,34 @@ async def oauth_callback(
                     "code": callback_data.code,
                     "client_id": client_id,
                     "client_secret": client_secret,
-                    "redirect_uri": settings.oauth_redirect_url,
+                    "redirect_uri": redirect_uri,
                     "grant_type": "authorization_code",
                 }
             )
             
             if token_response.status_code != 200:
+                error_detail = "Failed to exchange authorization code"
+                try:
+                    error_data = token_response.json()
+                    error_detail = error_data.get("error_description", error_data.get("error", error_detail))
+                    logger.error("oauth_token_exchange_failed", 
+                               provider="google",
+                               status=token_response.status_code,
+                               error=error_detail,
+                               redirect_uri=redirect_uri,
+                               response=error_data)
+                except Exception:
+                    error_text = token_response.text[:200] if token_response.text else "No error details"
+                    logger.error("oauth_token_exchange_failed", 
+                               provider="google",
+                               status=token_response.status_code,
+                               error=error_text,
+                               redirect_uri=redirect_uri)
+                    error_detail = f"Failed to exchange authorization code: {error_text}"
+                
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to exchange authorization code"
+                    detail=error_detail
                 )
             
             token_data = token_response.json()
@@ -384,15 +585,34 @@ async def oauth_callback(
                     "code": callback_data.code,
                     "client_id": client_id,
                     "client_secret": client_secret,
-                    "redirect_uri": settings.oauth_redirect_url,
+                    "redirect_uri": redirect_uri,
                 },
                 headers={"Accept": "application/json"}
             )
             
             if token_response.status_code != 200:
+                error_detail = "Failed to exchange authorization code"
+                try:
+                    error_data = token_response.json()
+                    error_detail = error_data.get("error_description", error_data.get("error", error_detail))
+                    logger.error("oauth_token_exchange_failed", 
+                               provider="github",
+                               status=token_response.status_code,
+                               error=error_detail,
+                               redirect_uri=redirect_uri,
+                               response=error_data)
+                except Exception:
+                    error_text = token_response.text[:200] if token_response.text else "No error details"
+                    logger.error("oauth_token_exchange_failed", 
+                               provider="github",
+                               status=token_response.status_code,
+                               error=error_text,
+                               redirect_uri=redirect_uri)
+                    error_detail = f"Failed to exchange authorization code: {error_text}"
+                
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to exchange authorization code"
+                    detail=error_detail
                 )
             
             token_data = token_response.json()

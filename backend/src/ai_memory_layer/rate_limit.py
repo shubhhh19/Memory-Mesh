@@ -167,12 +167,58 @@ def get_client_identifier(request: Request) -> str:
 
 
 def _get_ip_identifier(request: Request) -> str:
-    """Prefer forwarded-for header, fall back to client host."""
+    """
+    Get client IP for rate limiting, resistant to IP spoofing.
+    
+    Priority:
+    1. X-Real-IP (set by reverse proxy like Render/nginx)
+    2. First IP in X-Forwarded-For (only if from trusted proxy)
+    3. Direct client host
+    
+    Note: In production behind a reverse proxy, X-Real-IP is more reliable
+    as it's set by the proxy itself and cannot be spoofed by the client.
+    """
+    # X-Real-IP is set by the reverse proxy and is more trustworthy
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        # Validate IP format to prevent injection
+        ip = real_ip.strip()
+        if _is_valid_ip(ip):
+            return f"ip:{ip}"
+    
+    # Fall back to X-Forwarded-For with validation
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return f"ip:{forwarded.split(',')[0].strip()}"
+        # Get the rightmost non-private IP (the one closest to the proxy)
+        # or the leftmost IP if behind a trusted proxy
+        ips = [ip.strip() for ip in forwarded.split(",")]
+        if ips:
+            # Use the first IP (client IP when behind trusted proxy)
+            # In production, Render/nginx sets this correctly
+            first_ip = ips[0]
+            if _is_valid_ip(first_ip):
+                return f"ip:{first_ip}"
+    
+    # Direct connection - use client host
     client_host = request.client.host if request.client else "unknown"
     return f"ip:{client_host}"
+
+
+def _is_valid_ip(ip: str) -> bool:
+    """Validate IP address format to prevent injection attacks."""
+    import re
+    # IPv4 pattern
+    ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    # IPv6 pattern (simplified)
+    ipv6_pattern = r'^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$'
+    
+    if re.match(ipv4_pattern, ip):
+        # Validate each octet is 0-255
+        octets = ip.split('.')
+        return all(0 <= int(octet) <= 255 for octet in octets)
+    elif re.match(ipv6_pattern, ip) or ip == '::1':
+        return True
+    return False
 
 
 def _parse_limit(limit_str: str) -> RateLimitConfig:

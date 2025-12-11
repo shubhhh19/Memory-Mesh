@@ -1,56 +1,104 @@
-
+# Testsprite test artifacts (keep these)
 !testsprite_tests/standard_prd.json
 !testsprite_tests/testsprite-mcp-test-report.md
 !testsprite_tests/testsprite_backend_test_plan.json
+
+# =============================================================================
+# SECURITY - Environment & Secrets (CRITICAL - Never commit these)
+# =============================================================================
+.env
+.env.*
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+secrets/
+credentials/
+
+# =============================================================================
 # Database
-# Docker
-# Environment variables
-# IDE
-# Logs
-# OS
-# Python
-# Temporary files
-# Test artifacts
-# Testsprite test artifacts
-*$py.class
-*.bak
+# =============================================================================
 *.db
-*.egg-info/
-*.log
-*.py[cod]
-*.so
 *.sqlite
 *.sqlite3
-*.swo
-*.swp
-*.tmp
-*~
-.DS_Store
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 .Python
-.coverage
-.cursor/rules/kluster-code-verify.mdc
-.dockerignore
-.env
-.env.*.local
-.env.local
-.idea/
-.kluster
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+.tox/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-.tox/
-.venv/
-.vscode/
-/tmp/
-Thumbs.db
-__pycache__/
-build/
-dist/
-frontend/node_modules/
 htmlcov/
+.coverage
+
+# =============================================================================
+# IDE & Editor
+# =============================================================================
+.idea/
+.vscode/
+*.swo
+*.swp
+*~
+*.bak
+.cursor/rules/kluster-code-verify.mdc
+
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Docker
+# =============================================================================
+.dockerignore
+
+# =============================================================================
+# Logs & Temporary Files
+# =============================================================================
+*.log
+*.tmp
 logs/
+/tmp/
+
+# =============================================================================
+# Node.js / Frontend
+# =============================================================================
+frontend/node_modules/
+node_modules/
+
+# =============================================================================
+# Test Artifacts
+# =============================================================================
 testsprite_tests/*.html
 testsprite_tests/*.json
 testsprite_tests/*.py
 testsprite_tests/tmp/
-venv/
+
+# =============================================================================
+# Other
+# =============================================================================
+.kluster
+
+# =============================================================================
+# Documentation - Production Guide (not for public repo)
+# =============================================================================
+README_PRODUCTION.md

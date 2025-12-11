@@ -50,15 +50,20 @@ async def create_messages_batch(
     session: AsyncSession = Depends(get_session),
 ) -> MessageBatchResponse:
     """Create multiple messages in a batch."""
+    from ai_memory_layer.logging import get_logger
+    
+    logger = get_logger(component=__name__)
     created = []
     errors = []
     
-    for msg_data in payload.messages:
+    for idx, msg_data in enumerate(payload.messages):
         try:
             result = await service.ingest(session, msg_data)
             created.append(result)
         except Exception as e:
-            errors.append({"message": str(msg_data), "error": str(e)})
+            # Log the full error internally but return sanitized message to client
+            logger.exception(f"Batch create failed for message {idx}: {e}")
+            errors.append({"message_index": idx, "error": "Failed to create message"})
     
     await session.commit()
     
@@ -69,7 +74,7 @@ async def create_messages_batch(
 @router.get("/{message_id}", response_model=MessageResponse)
 async def get_message(
     message_id: str,
-    tenant_id: str | None = Query(None, description="Tenant ID for authorization"),
+    tenant_id: str = Query(..., description="Tenant ID for authorization"),
     current_user: Annotated[User | None, Depends(get_current_active_user)] = None,
     session: AsyncSession = Depends(get_read_session),
 ) -> MessageResponse:
@@ -79,7 +84,7 @@ async def get_message(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid message id") from exc
     
-    # If user is authenticated, use their tenant_id
+    # If user is authenticated, use their tenant_id (override query param for security)
     if current_user:
         tenant_id = get_tenant_id_from_user(current_user) or tenant_id
     
@@ -87,8 +92,8 @@ async def get_message(
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
     
-    # Check tenant_id if provided
-    if tenant_id and result.tenant_id != tenant_id:
+    # Always verify tenant access - tenant_id is now required
+    if result.tenant_id != tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     
     return result
@@ -98,7 +103,7 @@ async def get_message(
 async def update_message(
     message_id: str,
     message_update: MessageUpdate,
-    tenant_id: str | None = Query(None, description="Tenant ID for authorization"),
+    tenant_id: str = Query(..., description="Tenant ID for authorization"),
     current_user: Annotated[User | None, Depends(get_current_active_user)] = None,
     session: AsyncSession = Depends(get_session),
 ) -> MessageResponse:
@@ -108,14 +113,12 @@ async def update_message(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid message id") from exc
     
-    # If user is authenticated, use their tenant_id
+    # If user is authenticated, use their tenant_id (override query param for security)
     if current_user:
         tenant_id = get_tenant_id_from_user(current_user) or tenant_id
     
-    # Get message
-    stmt = select(Message).where(Message.id == message_uuid)
-    if tenant_id:
-        stmt = stmt.where(Message.tenant_id == tenant_id)
+    # Get message - always filter by tenant_id for security
+    stmt = select(Message).where(Message.id == message_uuid, Message.tenant_id == tenant_id)
     
     result = await session.execute(stmt)
     message = result.scalar_one_or_none()
@@ -162,26 +165,27 @@ async def update_message(
 @router.post("/batch/update", response_model=MessageBatchResponse)
 async def update_messages_batch(
     payload: MessageBatchUpdate,
-    tenant_id: str | None = Query(None, description="Tenant ID for authorization"),
+    tenant_id: str = Query(..., description="Tenant ID for authorization"),
     current_user: Annotated[User | None, Depends(get_current_active_user)] = None,
     session: AsyncSession = Depends(get_session),
 ) -> MessageBatchResponse:
     """Update multiple messages in a batch."""
-    # If user is authenticated, use their tenant_id
+    # If user is authenticated, use their tenant_id (override query param for security)
     if current_user:
         tenant_id = get_tenant_id_from_user(current_user) or tenant_id
     
-    # Fetch all messages in a single query to avoid N+1
+    # Fetch all messages in a single query - always filter by tenant_id for security
     message_ids = [update.message_id for update in payload.updates]
-    stmt = select(Message).where(Message.id.in_(message_ids))
-    if tenant_id:
-        stmt = stmt.where(Message.tenant_id == tenant_id)
+    stmt = select(Message).where(Message.id.in_(message_ids), Message.tenant_id == tenant_id)
     
     result = await session.execute(stmt)
     messages_dict = {msg.id: msg for msg in result.scalars().all()}
     
     updated = []
     errors = []
+    
+    # Track updated messages for response
+    updated_messages = []
     
     for batch_update in payload.updates:
         try:
@@ -218,12 +222,22 @@ async def update_messages_batch(
             if "archived" in update_data and update_data["archived"] is not None:
                 message.archived = update_data["archived"]
             
-            await session.flush()
-            updated.append(MessageResponse.model_validate(message))
+            updated_messages.append(message)
         except Exception as e:
-            errors.append({"message_id": str(batch_update.message_id), "error": str(e)})
+            # Log the full error internally but return sanitized message to client
+            from ai_memory_layer.logging import get_logger
+            logger = get_logger(component=__name__)
+            logger.exception(f"Batch update failed for message {batch_update.message_id}: {e}")
+            errors.append({"message_id": str(batch_update.message_id), "error": "Failed to update message"})
+    
+    # Flush all changes at once for better performance
+    if updated_messages:
+        await session.flush()
     
     await session.commit()
+    
+    # Build response after commit
+    updated = [MessageResponse.model_validate(msg) for msg in updated_messages]
     
     return MessageBatchResponse(created=[], updated=updated, deleted=[], errors=errors)
 
@@ -231,7 +245,7 @@ async def update_messages_batch(
 @router.delete("/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_message(
     message_id: str,
-    tenant_id: str | None = Query(None, description="Tenant ID for authorization"),
+    tenant_id: str = Query(..., description="Tenant ID for authorization"),
     current_user: Annotated[User | None, Depends(get_current_active_user)] = None,
     session: AsyncSession = Depends(get_session),
 ) -> None:
@@ -241,13 +255,12 @@ async def delete_message(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid message id") from exc
     
-    # If user is authenticated, use their tenant_id
+    # If user is authenticated, use their tenant_id (override query param for security)
     if current_user:
         tenant_id = get_tenant_id_from_user(current_user) or tenant_id
     
-    stmt = select(Message).where(Message.id == message_uuid)
-    if tenant_id:
-        stmt = stmt.where(Message.tenant_id == tenant_id)
+    # Always filter by tenant_id for security
+    stmt = select(Message).where(Message.id == message_uuid, Message.tenant_id == tenant_id)
     
     result = await session.execute(stmt)
     message = result.scalar_one_or_none()
@@ -262,42 +275,56 @@ async def delete_message(
 @router.post("/batch/delete", response_model=MessageBatchResponse)
 async def delete_messages_batch(
     payload: MessageBatchDelete,
-    tenant_id: str | None = Query(None, description="Tenant ID for authorization"),
+    tenant_id: str = Query(..., description="Tenant ID for authorization"),
     current_user: Annotated[User | None, Depends(get_current_active_user)] = None,
     session: AsyncSession = Depends(get_session),
 ) -> MessageBatchResponse:
     """Delete multiple messages in a batch."""
     from sqlalchemy import delete
+    from ai_memory_layer.logging import get_logger
     
-    # If user is authenticated, use their tenant_id
+    logger = get_logger(component=__name__)
+    
+    # If user is authenticated, use their tenant_id (override query param for security)
     if current_user:
         tenant_id = get_tenant_id_from_user(current_user) or tenant_id
     
-    # Use bulk delete for efficiency
-    stmt = delete(Message).where(Message.id.in_(payload.message_ids))
-    if tenant_id:
-        stmt = stmt.where(Message.tenant_id == tenant_id)
+    # First, verify all messages belong to this tenant
+    verify_stmt = select(Message.id).where(
+        Message.id.in_(payload.message_ids),
+        Message.tenant_id == tenant_id
+    )
+    result = await session.execute(verify_stmt)
+    valid_ids = {row[0] for row in result.fetchall()}
     
-    try:
-        result = await session.execute(stmt)
-        deleted_count = result.rowcount or 0
-        await session.commit()
-        
-        # Return all IDs as deleted (bulk operation doesn't tell us which ones)
-        deleted = payload.message_ids[:deleted_count]
-        errors = []
-        
-        # If some weren't deleted, add errors
-        if deleted_count < len(payload.message_ids):
-            for msg_id in payload.message_ids[deleted_count:]:
-                errors.append({"message_id": str(msg_id), "error": "Message not found or access denied"})
-        
-        return MessageBatchResponse(created=[], updated=[], deleted=deleted, errors=errors)
-    except Exception as e:
-        await session.rollback()
-        return MessageBatchResponse(
-            created=[],
-            updated=[],
-            deleted=[],
-            errors=[{"error": str(e)}],
+    # Check for unauthorized access attempts
+    unauthorized_ids = set(payload.message_ids) - valid_ids
+    errors = []
+    for msg_id in unauthorized_ids:
+        errors.append({"message_id": str(msg_id), "error": "Message not found or access denied"})
+    
+    # Delete only the valid messages
+    if valid_ids:
+        stmt = delete(Message).where(
+            Message.id.in_(list(valid_ids)),
+            Message.tenant_id == tenant_id
         )
+        
+        try:
+            result = await session.execute(stmt)
+            deleted_count = result.rowcount or 0
+            await session.commit()
+            deleted = list(valid_ids)[:deleted_count]
+        except Exception as e:
+            await session.rollback()
+            logger.exception(f"Batch delete failed: {e}")
+            return MessageBatchResponse(
+                created=[],
+                updated=[],
+                deleted=[],
+                errors=[{"error": "Batch delete operation failed"}],
+            )
+    else:
+        deleted = []
+    
+    return MessageBatchResponse(created=[], updated=[], deleted=deleted, errors=errors)

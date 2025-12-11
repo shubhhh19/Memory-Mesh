@@ -17,6 +17,7 @@ from ai_memory_layer.database import engine, init_engine, read_engines
 from ai_memory_layer.errors import register_exception_handlers
 from ai_memory_layer.logging import configure_logging, get_logger
 from ai_memory_layer.middleware import (
+    CSRFMiddleware,
     RequestIDMiddleware,
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -93,12 +94,25 @@ async def check_migrations() -> None:
             head_rev = script.get_current_head()
 
             if current_rev != head_rev:
-                logger.warning(
-                    "migrations_out_of_date",
-                    current=current_rev,
-                    head=head_rev,
-                    message="Database migrations are out of date. Run: alembic upgrade head",
-                )
+                # In production, fail fast if migrations are out of date
+                if settings.environment.lower() in ("production", "prod", "staging"):
+                    logger.error(
+                        "migrations_out_of_date_production",
+                        current=current_rev,
+                        head=head_rev,
+                        message="Database migrations are out of date. Run: alembic upgrade head",
+                    )
+                    raise RuntimeError(
+                        f"Database schema is out of date. Current: {current_rev}, Expected: {head_rev}. "
+                        "Run 'alembic upgrade head' before starting the application."
+                    )
+                else:
+                    logger.warning(
+                        "migrations_out_of_date",
+                        current=current_rev,
+                        head=head_rev,
+                        message="Database migrations are out of date. Run: alembic upgrade head",
+                    )
             else:
                 logger.info("migrations_up_to_date", revision=current_rev)
 
@@ -199,6 +213,7 @@ def create_app() -> FastAPI:
         max_age=3600,  # Cache preflight for 1 hour
     )
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(CSRFMiddleware)  # CSRF protection for cookie-based auth
     app.add_middleware(RequestSizeLimitMiddleware, max_bytes=settings.request_max_bytes)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(
@@ -214,6 +229,7 @@ def create_app() -> FastAPI:
     
     try:
         import os
+        # Static files are in backend/static/ relative to this file at backend/src/ai_memory_layer/main.py
         static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")
         if os.path.exists(static_dir):
             app.mount("/static", StaticFiles(directory=static_dir), name="static")

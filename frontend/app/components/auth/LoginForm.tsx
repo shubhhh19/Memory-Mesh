@@ -22,13 +22,38 @@ export default function LoginForm() {
         try {
             const response = await memoryMeshAPI.login(email, password, rememberMe);
 
-            if (response.error || !response.data) {
-                toast.error(response.error || 'Login failed');
+            // Check for errors first
+            if (response.error) {
+                toast.error(response.error);
+                setLoading(false);
                 return;
             }
 
-            // Save tokens
-            setAuthTokens(response.data);
+            // Check if we have data
+            if (!response.data) {
+                toast.error('Login failed. Please check your credentials.');
+                setLoading(false);
+                return;
+            }
+
+            // Check if response.data has the expected token structure
+            if (!response.data.access_token) {
+                // Check if it's an error response from backend
+                if (response.data.detail) {
+                    toast.error(response.data.detail);
+                } else {
+                    toast.error('Invalid response from server');
+                }
+                setLoading(false);
+                return;
+            }
+
+            // Save tokens - response.data should be { access_token, refresh_token, expires_in, token_type }
+            setAuthTokens({
+                access_token: response.data.access_token,
+                refresh_token: response.data.refresh_token || '',
+                expires_in: response.data.expires_in || 1800
+            });
 
             // Get user info
             const userResponse = await memoryMeshAPI.getCurrentUser();
@@ -37,33 +62,34 @@ export default function LoginForm() {
             }
 
             toast.success('Logged in successfully');
-            router.push('/dashboard');
-        } catch {
-            toast.error('An error occurred during login');
-        } finally {
+            router.push('/?view=dashboard');
+        } catch (err) {
+            toast.error('An error occurred during login. Please try again.');
             setLoading(false);
         }
     };
 
-    const handleOAuthLogin = (provider: 'google' | 'github') => {
-        const clientIds = {
-            google: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-            github: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
-        };
+    const handleOAuthLogin = async (provider: 'google' | 'github') => {
+        setLoading(true);
+        try {
+            const redirectUri = `${window.location.origin}/auth/callback`;
+            const response = await memoryMeshAPI.oauthInitiate(provider, redirectUri);
 
-        const clientId = clientIds[provider];
+            if (response.error || !response.data) {
+                toast.error(response.error || `${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth is not configured`);
+                setLoading(false);
+                return;
+            }
 
-        if (!clientId) {
-            toast.error(`${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth is not configured. Please contact the administrator.`);
-            return;
+            // Store provider in session storage for callback
+            sessionStorage.setItem('oauth_provider', provider);
+
+            // Redirect to the authorization URL from backend
+            window.location.href = response.data.authorization_url;
+        } catch (error) {
+            toast.error(`Failed to initiate ${provider} login`);
+            setLoading(false);
         }
-
-        const redirectUris = {
-            google: `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(window.location.origin + '/api/auth/callback')}&response_type=code&scope=email profile&state=${provider}`,
-            github: `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(window.location.origin + '/api/auth/callback')}&scope=user:email&state=${provider}`
-        };
-
-        window.location.href = redirectUris[provider];
     };
 
 

@@ -1,14 +1,13 @@
 {
     "version": 2,
-    "builds": [
+    "buildCommand": "npm run build",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "framework": "nextjs",
+    "rewrites": [
         {
-            "src": "package.json",
-            "use": "@vercel/next"
+            "source": "/api/auth/callback",
+            "destination": "/auth/callback"
         }
-    ],
-    "env": {
-        "NEXT_PUBLIC_API_BASE_URL": "@api_base_url",
-        "NEXT_PUBLIC_GOOGLE_CLIENT_ID": "@google_client_id",
-        "NEXT_PUBLIC_GITHUB_CLIENT_ID": "@github_client_id"
-    }
+    ]
 }
