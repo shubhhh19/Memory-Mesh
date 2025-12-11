@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const runtime = 'edge';
+// Edge runtime is automatically used for ImageResponse from next/og
 
 export const size = {
   width: 180,
