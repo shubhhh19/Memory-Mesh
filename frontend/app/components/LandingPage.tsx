@@ -10,141 +10,169 @@ interface LandingPageProps {
     onNavigateToDashboard: () => void;
 }
 
+const competitiveAdvantages = [
+    {
+        icon: 'material-symbols:psychology',
+        title: 'Intelligent Importance Scoring',
+        description: 'Unlike simple vector search, Memory Mesh combines recency decay, role-based weights, and explicit importance signals to surface the most relevant memories first.',
+        highlight: 'Multi-factor scoring vs. single similarity metric'
+    },
+    {
+        icon: 'material-symbols:rule-settings',
+        title: 'Advanced Retention Policies',
+        description: 'Rule-based lifecycle management with archive, delete, and cold storage actions. Create complex retention rules based on age, importance, conversation type, and more.',
+        highlight: 'Rule engine vs. simple TTL expiration'
+    },
+    {
+        icon: 'material-symbols:blend',
+        title: 'Hybrid Search Ranking',
+        description: 'Combines vector similarity, importance scores, and temporal decay for smarter results. Not just cosine similarity—intelligent ranking that understands context.',
+        highlight: 'Hybrid ranking vs. pure vector search'
+    },
+    {
+        icon: 'material-symbols:account-tree',
+        title: 'True Multi-Tenancy',
+        description: 'Built-in tenant isolation with secure data separation. Each tenant gets isolated storage, rate limits, and retention policies.',
+        highlight: 'Native multi-tenancy vs. manual isolation'
+    },
+    {
+        icon: 'material-symbols:sync',
+        title: 'Real-Time Updates',
+        description: 'WebSocket support for live conversation updates and streaming search results. Your app stays in sync without polling.',
+        highlight: 'Real-time vs. polling-based'
+    },
+    {
+        icon: 'material-symbols:security',
+        title: 'Production-Ready Security',
+        description: 'Dual authentication (JWT + API keys), role-based access control, Redis-backed rate limiting, and comprehensive monitoring out of the box.',
+        highlight: 'Enterprise security vs. basic auth'
+    }
+];
+
+const whyBetter = [
+    {
+        competitor: 'Simple Vector DBs',
+        theirWay: 'Basic cosine similarity search',
+        ourWay: 'Hybrid ranking with importance scoring and temporal decay',
+        icon: 'material-symbols:trending-up'
+    },
+    {
+        competitor: 'Generic Memory Services',
+        theirWay: 'Simple TTL-based expiration',
+        ourWay: 'Rule-based retention engine with archive, delete, and cold storage',
+        icon: 'material-symbols:auto-awesome'
+    },
+    {
+        competitor: 'Basic Embedding APIs',
+        theirWay: 'Single embedding provider, synchronous only',
+        ourWay: 'Multiple providers (Gemini, Sentence Transformers) with async job queue',
+        icon: 'material-symbols:extension'
+    },
+    {
+        competitor: 'DIY Solutions',
+        theirWay: 'Build your own multi-tenancy, auth, and monitoring',
+        ourWay: 'Everything included: JWT auth, API keys, rate limiting, Prometheus metrics',
+        icon: 'material-symbols:rocket-launch'
+    }
+];
+
 const features = [
     {
         icon: 'material-symbols:search',
         title: 'Semantic Search',
-        description: 'Vector similarity search for finding relevant messages using advanced embeddings and similarity algorithms.'
+        description: 'Vector similarity search powered by pgvector with intelligent hybrid ranking that combines similarity, importance, and recency.'
     },
     {
-        icon: 'material-symbols:schedule',
-        title: 'Async Embeddings',
-        description: 'Background job processing for embeddings ensures fast response times without blocking your application flow.'
+        icon: 'material-symbols:psychology',
+        title: 'Smart Importance Scoring',
+        description: 'Multi-factor importance calculation using recency decay, role weights, and explicit importance signals for better result ranking.'
     },
     {
-        icon: 'material-symbols:star',
-        title: 'Importance Scoring',
-        description: 'Automatic message importance calculation helps prioritize and surface the most relevant information first.'
+        icon: 'material-symbols:rule-settings',
+        title: 'Advanced Retention',
+        description: 'Rule-based lifecycle management with archive, delete, and cold storage actions based on complex conditions.'
     },
     {
-        icon: 'material-symbols:auto-delete',
-        title: 'Auto Retention',
-        description: 'Configurable policies for archiving and deleting old messages to keep your storage optimized and costs low.'
+        icon: 'material-symbols:account-tree',
+        title: 'Multi-Tenant Architecture',
+        description: 'Built-in tenant isolation with secure data separation, per-tenant rate limits, and isolated retention policies.'
     },
     {
-        icon: 'material-symbols:business',
-        title: 'Enterprise Ready',
-        description: 'API authentication, rate limiting, multi-tenancy, and comprehensive metrics for production deployments.'
+        icon: 'material-symbols:sync',
+        title: 'Real-Time WebSockets',
+        description: 'Live updates via WebSocket connections for real-time conversation sync and streaming search results.'
     },
     {
-        icon: 'material-symbols:integration-instructions',
-        title: 'Easy Integration',
-        description: 'REST API with SDKs for multiple languages makes integration simple and developer-friendly.'
+        icon: 'material-symbols:security',
+        title: 'Enterprise Security',
+        description: 'Dual authentication (JWT + API keys), role-based access control, Redis-backed rate limiting, and CORS protection.'
     }
 ];
 
-const techStack = [
-    { name: 'FastAPI', icon: 'simple-icons:fastapi' },
-    { name: 'PostgreSQL', icon: 'simple-icons:postgresql' },
-    { name: 'Redis', icon: 'simple-icons:redis' },
-    { name: 'Docker', icon: 'simple-icons:docker' },
-    { name: 'Python', icon: 'simple-icons:python' },
-    { name: 'Prometheus', icon: 'simple-icons:prometheus' }
-];
-
 const codeExamples = {
-    curl: `curl -X POST http://localhost:8000/v1/messages \\
+    curl: `# Store a message with importance hint
+curl -X POST http://localhost:8000/v1/messages \\
   -H "x-api-key: your-api-key" \\
   -H "Content-Type: application/json" \\
   -d '{
     "tenant_id": "your-tenant",
     "conversation_id": "conversation-1",
     "role": "user",
-    "content": "How does vector similarity work?"
-  }'`,
-    python: `import requests
+    "content": "This is a critical piece of information",
+    "importance": 0.9
+  }'
 
-# Store a message
-response = requests.post(
-    'http://localhost:8000/v1/messages',
-    headers={'x-api-key': 'your-api-key'},
-    json={
-        'tenant_id': 'your-tenant',
-        'conversation_id': 'conversation-1',
-        'role': 'user',
-        'content': 'How does vector similarity work?'
-    }
+# Search with hybrid ranking (similarity + importance + recency)
+curl "http://localhost:8000/v1/memory/search?\\
+  tenant_id=your-tenant&\\
+  query=critical information&\\
+  top_k=5" \\
+  -H "x-api-key: your-api-key"`,
+    python: `from memorymesh import MemoryMeshClient
+
+client = MemoryMeshClient(
+    base_url="http://localhost:8000",
+    api_key="your-api-key"
 )
 
-# Search memories
-search_response = requests.get(
-    'http://localhost:8000/v1/memory/search',
-    headers={'x-api-key': 'your-api-key'},
-    params={
-        'query': 'vector similarity',
-        'tenant_id': 'your-tenant',
-        'top_k': 5
-    }
-)`,
-    javascript: `const API_BASE = 'http://localhost:8000';
-const headers = {
-  'x-api-key': 'your-api-key',
-  'Content-Type': 'application/json'
-};
+# Store message with importance
+message = await client.store_message(
+    tenant_id="your-tenant",
+    conversation_id="conv-1",
+    role="user",
+    content="Important context for future reference",
+    importance=0.85  # Explicit importance signal
+)
 
-// Store a message
-const storeMessage = await fetch(\`\${API_BASE}/v1/messages\`, {
-  method: 'POST',
-  headers,
-  body: JSON.stringify({
-    tenant_id: 'your-tenant',
-    conversation_id: 'conversation-1',
-    role: 'user',
-    content: 'How does vector similarity work?'
-  })
+# Search - automatically uses hybrid ranking
+results = await client.search(
+    tenant_id="your-tenant",
+    query="important context",
+    top_k=5
+)
+# Results ranked by: similarity + importance + recency`,
+    javascript: `import { MemoryMeshClient } from '@memorymesh/sdk';
+
+const client = new MemoryMeshClient({
+  baseUrl: 'http://localhost:8000',
+  apiKey: 'your-api-key'
 });
 
-// Search memories
-const searchMemories = await fetch(
-  \`\${API_BASE}/v1/memory/search?query=vector%20similarity&tenant_id=your-tenant&top_k=5\`,
-  { headers }
-);`,
-    go: `package main
+// Store with importance scoring
+await client.messages.create({
+  tenant_id: 'your-tenant',
+  conversation_id: 'conv-1',
+  role: 'user',
+  content: 'Key information to remember',
+  importance: 0.8
+});
 
-import (
-    "bytes"
-    "encoding/json"
-    "fmt"
-    "net/http"
-)
-
-type Message struct {
-    TenantID       string \`json:"tenant_id"\`
-    ConversationID string \`json:"conversation_id"\`
-    Role          string \`json:"role"\`
-    Content       string \`json:"content"\`
-}
-
-func storeMessage() {
-    msg := Message{
-        TenantID:       "your-tenant",
-        ConversationID: "conversation-1",
-        Role:          "user",
-        Content:       "How does vector similarity work?",
-    }
-    
-    jsonData, _ := json.Marshal(msg)
-    req, _ := http.NewRequest("POST", 
-        "http://localhost:8000/v1/messages", 
-        bytes.NewBuffer(jsonData))
-    
-    req.Header.Set("x-api-key", "your-api-key")
-    req.Header.Set("Content-Type", "application/json")
-    
-    client := &http.Client{}
-    resp, _ := client.Do(req)
-    defer resp.Body.Close()
-}`
+// Search uses hybrid ranking automatically
+const results = await client.memory.search({
+  tenant_id: 'your-tenant',
+  query: 'key information',
+  top_k: 5
+});`
 };
 
 export default function LandingPage({ onNavigateToDashboard }: LandingPageProps) {
@@ -160,17 +188,40 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.8 }}
-                            className="max-w-4xl mx-auto rounded-2xl border border-[var(--border)] bg-[rgb(var(--surface-rgb)/0.5)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] px-6 sm:px-10 py-10"
+                            className="max-w-5xl mx-auto"
                         >
-                            <h1 id="hero-heading" className="text-5xl md:text-7xl font-light text-[var(--text)] mb-6 leading-tight">
-                                <span>Semantic Memory</span>
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--border)] bg-[rgb(var(--surface-rgb)/0.5)] backdrop-blur-xl mb-8">
+                                <Icon icon="material-symbols:auto-awesome" className="w-4 h-4 text-[var(--accent)]" />
+                                <span className="text-sm text-[var(--muted-text)]">Smarter than simple vector search</span>
+                            </div>
+                            
+                            <div className="mb-10">
+                                <h1 className="text-5xl md:text-6xl font-light mb-2 tracking-tight">
+                                    <span className="bg-gradient-to-r from-[var(--accent)] via-blue-500 to-purple-500 bg-clip-text text-transparent font-normal">
+                                        Memory Mesh
+                                    </span>
+                                </h1>
+                                <div className="h-px w-24 bg-gradient-to-r from-[var(--accent)] to-transparent mx-auto mt-4"></div>
+                            </div>
+                            
+                            <h2 id="hero-heading" className="text-5xl md:text-7xl font-light text-[var(--text)] mb-6 leading-tight">
+                                <span>Memory That</span>
                                 <br />
-                                <span>for AI Systems</span>
-                            </h1>
+                                <span className="bg-gradient-to-r from-[var(--accent)] to-blue-400 bg-clip-text text-transparent">Actually Understands</span>
+                            </h2>
 
-                            <p className="text-xl text-[var(--muted-text)] mb-8 max-w-2xl mx-auto leading-relaxed">
-                                <span>Store, search, and manage conversational memories with vector embeddings, </span>
-                                <span>importance scoring, and automated retention policies.</span>
+                            <p className="text-xl md:text-2xl text-[var(--muted-text)] mb-4 max-w-3xl mx-auto leading-relaxed">
+                                <span>Not just vector search. Intelligent memory with </span>
+                                <span className="text-[var(--text)] font-medium">importance scoring</span>
+                                <span>, </span>
+                                <span className="text-[var(--text)] font-medium">hybrid ranking</span>
+                                <span>, and </span>
+                                <span className="text-[var(--text)] font-medium">advanced retention policies</span>
+                                <span>.</span>
+                            </p>
+
+                            <p className="text-lg text-[var(--muted-text)] mb-8 max-w-2xl mx-auto">
+                                The only memory service that combines semantic search with intelligent lifecycle management
                             </p>
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -199,34 +250,111 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                 </div>
             </section>
 
-            {/* Code Example Section */}
-            <section className="py-16 px-4 sm:px-6 lg:px-8 bg-[var(--background)]" aria-labelledby="quickstart-heading">
-                <div className="max-w-4xl mx-auto">
+            {/* Why Better Section */}
+            <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[rgb(var(--surface-rgb)/0.3)] backdrop-blur-xl" aria-labelledby="why-heading">
+                <div className="max-w-7xl mx-auto">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.8 }}
-                        className="text-center mb-8"
+                        className="text-center mb-16"
                     >
-                        <h2 id="quickstart-heading" className="text-3xl font-light text-[var(--text)] mb-4">
-                            <span>Get Started in Seconds</span>
+                        <h2 id="why-heading" className="text-4xl md:text-5xl font-light text-[var(--text)] mb-4">
+                            <span>Why Memory Mesh is Different</span>
                         </h2>
-                        <p className="text-[var(--muted-text)]">
-                            <span>Simple REST API for storing and searching semantic memories</span>
+                        <p className="text-xl text-[var(--muted-text)] max-w-2xl mx-auto">
+                            <span>We don't just store vectors. We build intelligent memory systems.</span>
                         </p>
                     </motion.div>
 
-                    <CodeBlock
-                        code={codeExamples.curl}
-                        language="bash"
-                        title="Quick Start Example"
-                    />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {whyBetter.map((item, index) => (
+                            <motion.div
+                                key={item.competitor}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: index * 0.1 }}
+                                className="rounded-2xl p-6 border border-[var(--border)] bg-[rgb(var(--surface-rgb)/0.55)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]"
+                            >
+                                <div className="flex items-start mb-4">
+                                    <div className="p-2 bg-[rgb(var(--surface-rgb)/0.5)] backdrop-blur-xl rounded-lg mr-4 border border-[var(--border)]">
+                                        <Icon icon={item.icon} className="w-6 h-6 text-[var(--accent)]" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-medium text-[var(--text)] mb-2">{item.competitor}</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start">
+                                                <div className="flex-shrink-0 w-2 h-2 rounded-full bg-red-400 mt-2 mr-3"></div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-[var(--muted-text)] mb-1">Their Way</p>
+                                                    <p className="text-sm text-[var(--muted-text)]">{item.theirWay}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start">
+                                                <div className="flex-shrink-0 w-2 h-2 rounded-full bg-[var(--accent)] mt-2 mr-3"></div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-[var(--accent)] mb-1">Memory Mesh</p>
+                                                    <p className="text-sm text-[var(--text)]">{item.ourWay}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Competitive Advantages */}
+            <section className="py-20 px-4 sm:px-6 lg:px-8" aria-labelledby="advantages-heading">
+                <div className="max-w-7xl mx-auto">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8 }}
+                        className="text-center mb-16"
+                    >
+                        <h2 id="advantages-heading" className="text-4xl md:text-5xl font-light text-[var(--text)] mb-4">
+                            <span>What Makes Us Better</span>
+                        </h2>
+                        <p className="text-xl text-[var(--muted-text)] max-w-2xl mx-auto">
+                            <span>Features that set Memory Mesh apart from simple vector databases</span>
+                        </p>
+                    </motion.div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {competitiveAdvantages.map((advantage, index) => (
+                            <motion.div
+                                key={advantage.title}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: index * 0.1 }}
+                                className="rounded-2xl p-6 border border-[var(--border)] bg-[rgb(var(--surface-rgb)/0.55)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] transition-shadow"
+                            >
+                                <div className="flex items-center mb-4">
+                                    <div className="p-2 bg-[rgb(var(--surface-rgb)/0.5)] backdrop-blur-xl rounded-lg mr-4 border border-[var(--border)]">
+                                        <Icon icon={advantage.icon} className="w-6 h-6 text-[var(--accent)]" />
+                                    </div>
+                                    <h3 className="text-xl font-medium text-[var(--text)]">{advantage.title}</h3>
+                                </div>
+                                <p className="text-[var(--muted-text)] text-sm leading-relaxed mb-3">{advantage.description}</p>
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgb(var(--accent-rgb)/0.1)] border border-[rgb(var(--accent-rgb)/0.2)]">
+                                    <Icon icon="material-symbols:check-circle" className="w-4 h-4 text-[var(--accent)]" />
+                                    <span className="text-xs font-medium text-[var(--accent)]">{advantage.highlight}</span>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
                 </div>
             </section>
 
             {/* Features Section */}
-            <section className="py-20 px-4 sm:px-6 lg:px-8" aria-labelledby="features-heading">
+            <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[rgb(var(--surface-rgb)/0.3)] backdrop-blur-xl" aria-labelledby="features-heading">
                 <div className="max-w-7xl mx-auto">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -236,10 +364,10 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                         className="text-center mb-16"
                     >
                         <h2 id="features-heading" className="text-4xl font-light text-[var(--text)] mb-4">
-                            <span>Built for Scale</span>
+                            <span>Complete Memory Infrastructure</span>
                         </h2>
                         <p className="text-xl text-[var(--muted-text)] max-w-2xl mx-auto">
-                            <span>Everything you need to add semantic memory capabilities to your AI applications</span>
+                            <span>Everything you need for production AI applications</span>
                         </p>
                     </motion.div>
 
@@ -266,107 +394,8 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                 </div>
             </section>
 
-            {/* How It Works Section */}
-            <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[var(--background)]" aria-labelledby="how-heading">
-                <div className="max-w-5xl mx-auto">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8 }}
-                        className="text-center mb-16"
-                    >
-                        <h2 id="how-heading" className="text-4xl font-light text-[var(--text)] mb-4">
-                            <span>How It Works</span>
-                        </h2>
-                        <p className="text-xl text-[var(--muted-text)]">
-                            <span>Three simple steps to semantic memory</span>
-                        </p>
-                    </motion.div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {[
-                            {
-                                step: '01',
-                                title: 'Store',
-                                description: 'Messages are automatically processed with vector embeddings and importance scoring.',
-                                icon: 'material-symbols:storage'
-                            },
-                            {
-                                step: '02',
-                                title: 'Search',
-                                description: 'Query using semantic similarity to find the most relevant memories across conversations.',
-                                icon: 'material-symbols:search'
-                            },
-                            {
-                                step: '03',
-                                title: 'Manage',
-                                description: 'Automated retention policies keep your memory store optimized and cost-effective.',
-                                icon: 'material-symbols:settings'
-                            }
-                        ].map((item, index) => (
-                            <motion.div
-                                key={item.step}
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.8, delay: index * 0.2 }}
-                                className="text-center"
-                            >
-                                <div className="relative mb-6">
-                                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-[var(--border)] bg-[rgb(var(--surface-rgb)/0.6)] backdrop-blur-xl">
-                                        <Icon icon={item.icon} className="w-8 h-8 text-[var(--accent)]" />
-                                    </div>
-                                    <div className="text-sm font-medium text-[var(--muted-text)] mb-2">{item.step}</div>
-                                </div>
-                                <h3 className="text-2xl font-medium text-[var(--text)] mb-4">{item.title}</h3>
-                                <p className="text-[var(--muted-text)] text-sm leading-relaxed">{item.description}</p>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Tech Stack Section */}
-            <section className="py-20 px-4 sm:px-6 lg:px-8" aria-labelledby="stack-heading">
-                <div className="max-w-5xl mx-auto">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8 }}
-                        className="text-center mb-12"
-                    >
-                        <h2 id="stack-heading" className="text-4xl font-light text-[var(--text)] mb-4">
-                            <span>Built with Modern Stack</span>
-                        </h2>
-                        <p className="text-xl text-[var(--muted-text)]">
-                            <span>Production-ready technologies for reliability and scale</span>
-                        </p>
-                    </motion.div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
-                        {techStack.map((tech, index) => (
-                            <motion.div
-                                key={tech.name}
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                whileInView={{ opacity: 1, scale: 1 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: index * 0.1 }}
-                                className="text-center"
-                            >
-                                <div className="p-4 rounded-lg border border-[var(--border)] mb-3 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] transition-shadow bg-[rgb(var(--surface-rgb)/0.55)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
-                                    <Icon icon={tech.icon} className="w-8 h-8 mx-auto text-[var(--accent)]" />
-                                </div>
-                                <p className="text-sm font-medium text-[var(--muted-text)]">{tech.name}</p>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Quick Start Code Examples */}
-            <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[var(--background)]" aria-labelledby="langs-heading">
+            {/* Code Examples */}
+            <section className="py-20 px-4 sm:px-6 lg:px-8" aria-labelledby="code-heading">
                 <div className="max-w-6xl mx-auto">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -375,11 +404,11 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                         transition={{ duration: 0.8 }}
                         className="text-center mb-12"
                     >
-                        <h2 id="langs-heading" className="text-4xl font-light text-[var(--text)] mb-4">
-                            <span>Multiple Language Support</span>
+                        <h2 id="code-heading" className="text-4xl font-light text-[var(--text)] mb-4">
+                            <span>Get Started in Minutes</span>
                         </h2>
                         <p className="text-xl text-[var(--muted-text)]">
-                            <span>Start building with your preferred language and framework</span>
+                            <span>Simple API with intelligent defaults. Importance scoring and hybrid ranking work automatically.</span>
                         </p>
                     </motion.div>
 
@@ -416,12 +445,12 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="md:col-span-2">
                             <div className="flex items-center space-x-3 mb-4">
-                                <img src="/logo-icon.png" alt="Memory Mesh Logo" width={32} height={32} className="w-8 h-8" />
+                                <img src="/logo.png" alt="Memory Mesh Logo" width={120} height={34} className="h-10 w-auto" />
                                 <h3 className="text-xl font-medium text-[var(--text)]">Memory Mesh</h3>
                             </div>
                             <p className="text-[var(--muted-text)] text-sm mb-6">
-                                <span>Semantic memory infrastructure for next-generation AI applications. </span>
-                                <span>Store, search, and manage conversational memories at scale.</span>
+                                <span>Intelligent memory infrastructure for AI applications. </span>
+                                <span>Not just vector search—smarter memory with importance scoring, hybrid ranking, and advanced retention.</span>
                             </p>
                             <p className="text-[var(--muted-text)] text-xs mb-2">
                                 <span>© 2025 Memory Mesh. Open source project.</span>

@@ -10,11 +10,14 @@ import SearchSection from './dashboard/SearchSection';
 import MessageRetrieval from './dashboard/MessageRetrieval';
 import AdminSection from './dashboard/AdminSection';
 import RequestInspector from './dashboard/RequestInspector';
+import HybridRankingVisualizer from './dashboard/HybridRankingVisualizer';
+import ComingSoonOverlay from './dashboard/ComingSoonOverlay';
 
 type DashboardSection =
     | 'config'
     | 'messages'
     | 'search'
+    | 'ranking'
     | 'retrieve'
     | 'admin'
     | 'history';
@@ -37,6 +40,12 @@ const sections = [
         label: 'Search',
         icon: 'material-symbols:search',
         description: 'Semantic memory search'
+    },
+    {
+        id: 'ranking' as const,
+        label: 'Hybrid Ranking',
+        icon: 'material-symbols:bar-chart',
+        description: 'Interactive ranking visualizer'
     },
     {
         id: 'retrieve' as const,
@@ -114,16 +123,60 @@ export default function Dashboard() {
     };
 
     const renderSectionContent = () => {
+        const needsBackend = apiStatus !== 'connected';
+        
         switch (activeSection) {
             case 'config':
                 return <ConfigurationPanel onConfigChange={handleConfigChange} />;
             case 'messages':
+                if (needsBackend) {
+                    return (
+                        <ComingSoonOverlay 
+                            feature="Message Management"
+                            description="Store, update, and manage conversational messages with automatic embedding generation and importance scoring. Messages are processed with vector embeddings and ranked by our hybrid algorithm."
+                        />
+                    );
+                }
                 return <MessageManagement key={configChanged} />;
             case 'search':
+                if (needsBackend) {
+                    return (
+                        <ComingSoonOverlay 
+                            feature="Semantic Memory Search"
+                            description="Search through your memories using vector similarity with intelligent hybrid ranking that combines similarity (60%), importance (30%), and temporal decay (10%) for smarter results."
+                        />
+                    );
+                }
                 return <SearchSection key={configChanged} />;
+            case 'ranking':
+                if (needsBackend) {
+                    return (
+                        <ComingSoonOverlay 
+                            feature="Hybrid Ranking Visualizer"
+                            description="Interactively explore how Memory Mesh combines vector similarity, importance scoring, and temporal decay for smarter search results. Adjust weights in real-time and see results re-rank instantly—a feature unique to Memory Mesh."
+                        />
+                    );
+                }
+                return <HybridRankingVisualizer key={configChanged} />;
             case 'retrieve':
+                if (needsBackend) {
+                    return (
+                        <ComingSoonOverlay 
+                            feature="Message Retrieval"
+                            description="Retrieve specific messages by ID with full details including embedding status, importance scores, metadata, and conversation context."
+                        />
+                    );
+                }
                 return <MessageRetrieval key={configChanged} />;
             case 'admin':
+                if (needsBackend) {
+                    return (
+                        <ComingSoonOverlay 
+                            feature="Admin & Analytics"
+                            description="Monitor system health, run retention policies, and view usage analytics. Includes Prometheus metrics, health checks, retention policy management, and comprehensive monitoring."
+                        />
+                    );
+                }
                 return <AdminSection key={configChanged} />;
             case 'history':
                 return <RequestInspector />;

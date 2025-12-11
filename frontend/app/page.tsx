@@ -13,23 +13,21 @@ export default function Home() {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        // Set mounted immediately
         setMounted(true);
 
         // Check URL for view parameter (routes mode)
-        let initialTab = 'landing';
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const view = params.get('view');
             if (view === 'dashboard' || view === 'landing') {
-                initialTab = view;
+                setActiveTab(view);
             } else {
-                initialTab = getNavigationState();
+                const savedState = getNavigationState();
+                setActiveTab(savedState || 'landing');
             }
-        }
-        setActiveTab(initialTab);
 
-        // Handle browser back/forward
-        if (typeof window !== 'undefined') {
+            // Handle browser back/forward
             const onPop = () => {
                 const params = new URLSearchParams(window.location.search);
                 const view = params.get('view');

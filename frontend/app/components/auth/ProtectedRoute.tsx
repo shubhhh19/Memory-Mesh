@@ -9,16 +9,13 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-    const router = useRouter();
     const [isChecking, setIsChecking] = useState(true);
 
     useEffect(() => {
-        if (!isAuthenticated()) {
-            router.push('/login');
-        } else {
-            setIsChecking(false);
-        }
-    }, [router]);
+        // Allow dashboard access without authentication for demo purposes
+        // Users can still configure API settings and see "coming soon" overlays
+        setIsChecking(false);
+    }, []);
 
     if (isChecking) {
         return (
