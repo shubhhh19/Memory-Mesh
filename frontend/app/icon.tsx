@@ -49,7 +49,7 @@ export default async function Icon() {
         ...size,
       }
     );
-  } catch (error) {
+  } catch {
     // Fallback: return a simple response
     return new Response('', { status: 200 });
   }

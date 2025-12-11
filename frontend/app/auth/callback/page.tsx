@@ -69,7 +69,7 @@ function OAuthCallbackContent() {
                     toast.error('Invalid response from server');
                     router.push('/login');
                 }
-            } catch (error) {
+                } catch {
                 toast.error('An error occurred during authentication');
                 router.push('/login');
             }

@@ -264,7 +264,7 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                             <span>Why Memory Mesh is Different</span>
                         </h2>
                         <p className="text-xl text-[var(--muted-text)] max-w-2xl mx-auto">
-                            <span>We don't just store vectors. We build intelligent memory systems.</span>
+                            <span>We don&apos;t just store vectors. We build intelligent memory systems.</span>
                         </p>
                     </motion.div>
 
@@ -445,7 +445,7 @@ export default function LandingPage({ onNavigateToDashboard }: LandingPageProps)
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="md:col-span-2">
                             <div className="flex items-center space-x-3 mb-4">
-                                <img src="/logo.png" alt="Memory Mesh Logo" width={120} height={34} className="h-10 w-auto" />
+                                <Image src="/logo.png" alt="Memory Mesh Logo" width={120} height={34} className="h-10 w-auto" />
                                 <h3 className="text-xl font-medium text-[var(--text)]">Memory Mesh</h3>
                             </div>
                             <p className="text-[var(--muted-text)] text-sm mb-6">

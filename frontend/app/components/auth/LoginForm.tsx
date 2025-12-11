@@ -63,7 +63,7 @@ export default function LoginForm() {
 
             toast.success('Logged in successfully');
             router.push('/?view=dashboard');
-        } catch (err) {
+        } catch {
             toast.error('An error occurred during login. Please try again.');
             setLoading(false);
         }
@@ -86,7 +86,7 @@ export default function LoginForm() {
 
             // Redirect to the authorization URL from backend
             window.location.href = response.data.authorization_url;
-        } catch (error) {
+        } catch {
             toast.error(`Failed to initiate ${provider} login`);
             setLoading(false);
         }

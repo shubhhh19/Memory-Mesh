@@ -22,7 +22,7 @@ const tabs = [
 export default function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {
     const [mounted, setMounted] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<{ username?: string; avatar_url?: string; full_name?: string; email?: string } | null>(null);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const router = useRouter();
 
@@ -97,7 +97,7 @@ export default function NavigationTabs({ activeTab, onTabChange }: NavigationTab
                                     className="flex items-center space-x-2 text-sm font-medium text-[var(--text)] hover:text-[var(--accent)] transition-colors"
                                 >
                                     {user.avatar_url ? (
-                                        <img src={user.avatar_url} alt={user.username} className="w-8 h-8 rounded-full" />
+                                        <Image src={user.avatar_url} alt={user.username || 'User'} width={32} height={32} className="w-8 h-8 rounded-full" />
                                     ) : (
                                         <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-white">
                                             {user.username?.[0]?.toUpperCase() || 'U'}

@@ -36,7 +36,7 @@ export default function OAuthCallbackHandler() {
 
                     toast.success('Logged in successfully');
                     router.push('/?view=dashboard');
-                } catch (error) {
+                } catch {
                     toast.error('Authentication failed');
                     router.push('/login');
                 }

@@ -39,17 +39,8 @@ export default function Home() {
     }, []);
 
     const handleNavigateToDashboard = () => {
-        // Check if user is authenticated
-        const { isAuthenticated } = require('@/lib/auth');
-
-        if (!isAuthenticated()) {
-            // Redirect to login if not authenticated
-            if (typeof window !== 'undefined') {
-                window.location.href = '/login';
-            }
-            return;
-        }
-
+        // Navigate to dashboard (authentication check removed for demo)
+        // Users can access dashboard to see "coming soon" overlays
         setActiveTab('dashboard');
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
