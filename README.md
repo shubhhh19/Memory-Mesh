@@ -221,6 +221,35 @@ curl http://localhost:8000/v1/admin/health
 
 For more examples, see the [Integration Guide](INTEGRATION.md).
 
+## Troubleshooting
+
+### Common Issues
+
+**Database Connection Errors**
+- Ensure PostgreSQL is running: `pg_isready`
+- Verify connection string in `.env` file
+- Check that pgvector extension is installed: `CREATE EXTENSION IF NOT EXISTS vector;`
+
+**Embedding Generation Failures**
+- Verify your API key is set correctly in `.env`
+- Check API quota limits for your embedding provider
+- Review logs for specific error messages: `docker compose logs backend`
+
+**CORS Errors in Frontend**
+- Ensure `MEMORY_ALLOWED_ORIGINS` includes your frontend URL
+- Check that the frontend is using the correct API URL in `.env.local`
+- Clear browser cache and restart the development server
+
+**Rate Limiting Issues**
+- Verify Redis is running: `redis-cli ping`
+- Check Redis connection string in `.env`
+- Adjust rate limits in configuration if needed
+
+**Docker Compose Issues**
+- Clean up old containers: `docker compose down -v`
+- Rebuild images: `docker compose build --no-cache`
+- Check logs for all services: `docker compose logs`
+
 ## API Overview
 
 The service exposes these main endpoints:
