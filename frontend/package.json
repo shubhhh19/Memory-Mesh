@@ -32,7 +32,7 @@
     "framer-motion": "^12.8.0",
     "jose": "^6.0.10",
     "jsonwebtoken": "^9.0.2",
-    "next": "15.3.6",
+    "next": "15.3.8",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-hot-toast": "^2.4.1",
